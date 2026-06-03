@@ -29,18 +29,8 @@ spec:
       volumes:
         - name: prometheus-config-volume
           configMap:
-          # autorisation du fichier en mode décimal > mode octal 0644 > rw-r--r-- 
             defaultMode: 420
             name: prometheus-server-conf
 
         - name: prometheus-storage-volume
           emptyDir: {}
-# ConfigMap Kubernetes
-#         ↓
-# Volume Kubernetes
-#         ↓
-# VolumeMount
-#         ↓
-# /etc/prometheus/prometheus.yml
-#         ↓
-# Prometheus lit le fichier

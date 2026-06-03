@@ -1,0 +1,3 @@
+https://grafana.com/grafana/dashboards/15761-kubernetes-system-api-server/
+=> Dashboard sur l'API-SERVER assez complet
+
