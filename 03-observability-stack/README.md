@@ -1,4 +1,4 @@
-# 03-kube-prometheus-stack
+# Étape #3 - kube-prometheus-stack complète (opérateur Prometheus + autres composants)
 
 Ce qu'elle contient :
 
