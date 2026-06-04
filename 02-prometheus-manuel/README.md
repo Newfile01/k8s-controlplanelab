@@ -1,4 +1,4 @@
-# 🔭 Etape #2 - Mise en place d'une pile d'observabilité manuellement (sans opérateur)
+# 🔭 Étape #2 - Mise en place d'une pile d'observabilité Prometheus & Grafana (sans opérateur)
 
 Cette étape permet de comprendre les rouages de la collecte de métriques dans Kubernetes avec Prometheus avant l'utilisation d'un opérateur Kubernetes dédié.
 
