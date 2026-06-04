@@ -1,4 +1,4 @@
-# 🚀 Étape 1 - Création du cluster Kubernetes
+# 🚀 Étape #1 - Création du cluster Kubernetes
 
 ## Objectif
 
