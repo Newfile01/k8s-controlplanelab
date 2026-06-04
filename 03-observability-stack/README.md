@@ -1,5 +1,9 @@
 # Étape #3 - kube-prometheus-stack complète (opérateur Prometheus + autres composants)
 
+## Objectif
+
+Cette étape vise à remplacer la stack d'observabilité manuelle pour exploiter une stack complète : [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/README.md)
+
 Ce qu'elle contient :
 
 + [kube-prometheus](https://github.com/prometheus-operator/kube-prometheus/tree/main)
@@ -13,7 +17,18 @@ Ce qu'elle contient :
 Helm Repository : https://prometheus-community.github.io/helm-charts
 OCI Artifact Registry : oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
 
-Repartir d'un cluster avec la configuration suivante (sur Minikube) :
+Cette étape apportera :
+-  Automatisation de l'observabilité : détection des novueaux services, des nouveaux pods automatique
+-  Granularité étendue du monitoring du control-plane k8s
+-  Une première approche avec les opérateurs et leur application dans un cluster
+
+---
+
+## Repartir sur des bases saines
+
+Après observation de plusieurs problèmes en intégrant le Helm chart de kube-prometheus-stack dans notre cluster existant et étude des différents README de chaque dépendance du projet, il est apparu qu'il serait beaucoup plus simple et pertinent de redéployer un cluster de zéro.
+
+Pour repartir nous exécuterons les commandes suivantes (sur Minikube) :
 
 ```bash
 # Arrêt & suppression du cluster
