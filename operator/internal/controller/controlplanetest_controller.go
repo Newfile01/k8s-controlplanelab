@@ -22,6 +22,8 @@ import (
 	"time"
 
 	"golang.org/x/time/rate"
+
+	// Base pour un controller d'Operateur
 	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -32,9 +34,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	builder "sigs.k8s.io/controller-runtime/pkg/builder"
 
+	// Event-driven controller
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -45,7 +49,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	// Metrics
+
+	// Mon API
 	controlplanev1alpha1 "github.com/Newfile01/k8s-controlplanelab/operator/api/v1alpha1"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // ControlPlaneTestReconciler reconciles a ControlPlaneTest object
@@ -66,6 +74,56 @@ const (
 	deploymentOwnerKey = ".metadata.controller"
 )
 
+// Mes metriques personnalisées
+var (
+	reconciliationTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "controlplanetest_reconciliation_total",
+			Help: "Nombre total de reconciliations",
+		},
+	)
+
+	erreursReconciliationTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "controlplanetest_erreurs_reconciliation_total",
+			Help: "Nombre total d erreurs de reconciliation",
+		},
+	)
+
+	podsGeresGauge = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "controlplanetest_pods_geres",
+			Help: "Nombre de Pods actuellement geres",
+		},
+	)
+
+	replicasDisponiblesGauge = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "controlplanetest_replicas_disponibles",
+			Help: "Nombre de replicas disponibles",
+		},
+	)
+
+	reconciliationDuree = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "controlplanetest_duree_reconciliation_secondes",
+			Help:    "Temps d execution des reconciliations",
+			Buckets: prometheus.DefBuckets,
+		},
+		[]string{"type_reconciliation"},
+	)
+)
+
+func init() {
+	metrics.Registry.MustRegister(
+		reconciliationTotal,
+		erreursReconciliationTotal,
+		podsGeresGauge,
+		replicasDisponiblesGauge,
+		reconciliationDuree,
+	)
+}
+
 // +kubebuilder:rbac:groups=controlplane.lab.local,resources=controlplanetests,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=controlplane.lab.local,resources=controlplanetests/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=controlplane.lab.local,resources=controlplanetests/finalizers,verbs=update
@@ -80,7 +138,21 @@ const (
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.23.3/pkg/reconcile
 func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	debutReconciliation := time.Now()
+	typeReconciliation := "globale"
+
+	// "Defer" Déclenche la fonction suivante à chaque "return" de la fonction dans laquelle elle se trouve
+	// Ici on veut mesurer les durées pour chaque boucle de réconciliation : CREATION, UPDATE, STATUS, ERREUR, SUPPRESSION, etc...
+	defer func() {
+		reconciliationDuree.WithLabelValues(
+			typeReconciliation,
+		).Observe(
+			time.Since(debutReconciliation).Seconds(),
+		)
+	}()
+
 	_ = logf.FromContext(ctx)
+	reconciliationTotal.Inc()
 
 	fmt.Println("\n\n================ RECONCILIATION =================")
 
@@ -113,7 +185,7 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		// - objet inexistant
 
 		fmt.Println("🖥️🔍🚫 │ Aucune Custom Resource correspondante trouvée")
-
+		typeReconciliation = "cr_absent"
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
@@ -166,6 +238,7 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 				fmt.Println("🖥️🔄❌ │ Impossible d'ajouter le Finalizer")
 
+				erreursReconciliationTotal.Inc()
 				return ctrl.Result{}, err
 			}
 
@@ -202,13 +275,14 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 				fmt.Println("🖥️🔄❌ │ Impossible de supprimer le Finalizer")
 
+				erreursReconciliationTotal.Inc()
 				return ctrl.Result{}, err
 			}
 		}
 
 		// Une fois le dernier finalizer supprimé : Kubernetes supprimera réellement la ressource.
 		fmt.Println("🖥️🗑️✅ │ Finalizer supprimé, Kubernetes peut terminer la suppression")
-
+		typeReconciliation = "suppression_cr"
 		return ctrl.Result{}, nil
 	}
 
@@ -302,6 +376,7 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 			fmt.Println("🖥️🔄❌ │ Impossible d'ajouter l'OwnerReference")
 
+			erreursReconciliationTotal.Inc()
 			return ctrl.Result{}, err
 		}
 
@@ -324,13 +399,14 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		if err != nil {
 
 			fmt.Println("🖥️⬆️❌ │ Impossible de créer le Deployment")
-
+			typeReconciliation = "err_creation_deployment"
 			// En cas d'erreur : controller-runtime replanifiera automatiquement une nouvelle réconciliation.
+			erreursReconciliationTotal.Inc()
 			return ctrl.Result{}, err
 		}
 
 		fmt.Println("🖥️⬆️✅ │ Deployment créé avec succès")
-
+		typeReconciliation = "creation_deployment"
 		// Requeue : relance immédiate pour relire l'état réel créé par Kubernetes.
 		return ctrl.Result{Requeue: true}, nil
 	}
@@ -338,7 +414,8 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if err != nil {
 
 		fmt.Println("🖥️🔍❌ │ Erreur lors de la récupération du Deployment")
-
+		typeReconciliation = "err_api_deployment"
+		erreursReconciliationTotal.Inc()
 		return ctrl.Result{}, err
 	}
 
@@ -381,7 +458,8 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		if err != nil {
 
 			fmt.Println("🖥️🔄❌ │ Impossible d'ajouter l'OwnerReference à la ConfigMap")
-
+			typeReconciliation = "err_owner-ref_cm"
+			erreursReconciliationTotal.Inc()
 			return ctrl.Result{}, err
 		}
 
@@ -391,19 +469,21 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		if err != nil {
 
 			fmt.Println("🖥️⬆️❌ │ Impossible de créer la ConfigMap")
-
+			typeReconciliation = "err_creation_cm"
+			erreursReconciliationTotal.Inc()
 			return ctrl.Result{}, err
 		}
 
 		fmt.Println("🖥️⬆️✅ │ ConfigMap créée avec succès")
-
+		typeReconciliation = "creation_cm"
 		return ctrl.Result{Requeue: true}, nil
 	}
 
 	if err != nil {
 
 		fmt.Println("🖥️🔍❌ │ Erreur lors de la récupération de la ConfigMap")
-
+		typeReconciliation = "err_api_cm"
+		erreursReconciliationTotal.Inc()
 		return ctrl.Result{}, err
 	}
 
@@ -456,7 +536,8 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		if err != nil {
 
 			fmt.Println("🖥️🔄❌ │ Impossible d'ajouter l'OwnerReference au Service")
-
+			typeReconciliation = "err_owner-ref_svc"
+			erreursReconciliationTotal.Inc()
 			return ctrl.Result{}, err
 		}
 
@@ -466,19 +547,21 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		if err != nil {
 
 			fmt.Println("🖥️⬆️❌ │ Impossible de créer le Service")
-
+			typeReconciliation = "err_creation_svc"
+			erreursReconciliationTotal.Inc()
 			return ctrl.Result{}, err
 		}
 
 		fmt.Println("🖥️⬆️✅ │ Service créé avec succès")
-
+		typeReconciliation = "creation_svc"
 		return ctrl.Result{Requeue: true}, nil
 	}
 
 	if err != nil {
 
 		fmt.Println("🖥️🔍❌ │ Erreur lors de la récupération du Service")
-
+		typeReconciliation = "err_api_svc"
+		erreursReconciliationTotal.Inc()
 		return ctrl.Result{}, err
 	}
 
@@ -495,7 +578,7 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if len(containers) < 1 {
 
 		fmt.Println("☸️📦❌ │ Aucun container trouvé dans le Deployment")
-
+		typeReconciliation = "err_conteneur_dans_deployment"
 		return ctrl.Result{}, fmt.Errorf(
 			"deployment %s ne contient aucun container",
 			existingDeployment.Name,
@@ -549,12 +632,13 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		if err != nil {
 
 			fmt.Println("🖥️🔄❌ │ Impossible de mettre à jour le Deployment")
-
+			typeReconciliation = "err_maj_deployment"
+			erreursReconciliationTotal.Inc()
 			return ctrl.Result{}, err
 		}
 
 		fmt.Println("🖥️🔄✅ │ Deployment mis à jour avec succès")
-
+		typeReconciliation = "maj_deployment"
 		return ctrl.Result{Requeue: true}, nil
 	}
 
@@ -574,6 +658,14 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	newDeploymentName := existingDeployment.Name
 	newReadyReplicas := existingDeployment.Status.ReadyReplicas
 	newAvailableReplicas := existingDeployment.Status.AvailableReplicas
+
+	// ============================================
+	// METRICS PROMETHEUS
+	// ============================================
+
+	// Mise à jour des métriques custom exposées sur /metrics
+	podsGeresGauge.Set(float64(newReadyReplicas))
+	replicasDisponiblesGauge.Set(float64(newAvailableReplicas))
 
 	fmt.Println("☸️📊📦 │ ReadyReplicas :", newReadyReplicas)
 	fmt.Println("☸️📊📦 │ AvailableReplicas :", newAvailableReplicas)
@@ -658,12 +750,13 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		if err != nil {
 
 			fmt.Println("🖥️🔄❌ │ Impossible de mettre à jour le Status")
-
+			typeReconciliation = "err_maj_status"
+			erreursReconciliationTotal.Inc()
 			return ctrl.Result{}, err
 		}
 
 		fmt.Println("🖥️🔄✅ │ Status mis à jour avec succès")
-
+		typeReconciliation = "maj_status"
 		return ctrl.Result{Requeue: true}, nil
 	}
 
@@ -678,7 +771,7 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// La convergence est atteinte.
 
 	fmt.Println("🖥️🎯✅ │ Réconciliation terminée avec succès")
-
+	typeReconciliation = "reconciliation_complete"
 	return ctrl.Result{}, nil
 }
 
