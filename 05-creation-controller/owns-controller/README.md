@@ -1,4 +1,4 @@
-# 👀 REPERTOIRE POUR LA SURVEILLANCE DES RESSOURCES ENFANTS AVEC `Owns()`
+# 04 - 👀 REPERTOIRE POUR LA SURVEILLANCE DES RESSOURCES ENFANTS AVEC `Owns()`
 
 Cette étape transforme le controller précédent en véritable Operator réactif capable de surveiller automatiquement les ressources Kubernetes qu'il génère.
 
