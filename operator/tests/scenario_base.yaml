@@ -1,0 +1,16 @@
+apiVersion: controlplane.lab.local/v1alpha1
+kind: ControlPlaneTest
+
+metadata:
+  name: scheduler-hard
+  namespace: default
+
+spec:
+  image: nginx:latest
+  replicas: 2
+
+  schedulerStress:
+    enabled: true
+    deploymentCount: 10
+    replicasPerDeployment: 5
+    topologySpread: true

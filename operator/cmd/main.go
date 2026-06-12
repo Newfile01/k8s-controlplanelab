@@ -19,7 +19,9 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"math/rand"
 	"os"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -195,6 +197,7 @@ func main() {
 		os.Exit(1)
 	}
 
+	rand.Seed(time.Now().UnixNano())
 	setupLog.Info("Starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "Failed to run manager")

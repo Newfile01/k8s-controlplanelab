@@ -20,8 +20,97 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+// ============================================================
+// SCHEDULER STRESS
+// ============================================================
+
+type SchedulerStressSpec struct {
+	Enabled               bool              `json:"enabled,omitempty"`
+	NodeCount             int32             `json:"nodeCount,omitempty"`
+	DeploymentCount       int32             `json:"deploymentCount,omitempty"`
+	ReplicasPerDeployment int32             `json:"replicasPerDeployment,omitempty"`
+	NodeSelector          map[string]string `json:"nodeSelector,omitempty"`
+	TopologySpread        bool              `json:"topologySpread,omitempty"`
+	Affinity              string            `json:"affinity,omitempty"`
+	AntiAffinity          string            `json:"antiAffinity,omitempty"`
+}
+
+// ============================================================
+// API SERVER STRESS
+// ============================================================
+
+type APIServerStressSpec struct {
+	Enabled               bool  `json:"enabled,omitempty"`
+	FrequentStatusUpdates bool  `json:"frequentStatusUpdates,omitempty"`
+	AggressiveReconcile   bool  `json:"aggressiveReconcile,omitempty"`
+	RecreateResources     bool  `json:"recreateResources,omitempty"`
+	QPS                   int32 `json:"qps,omitempty"`
+	Burst                 int32 `json:"burst,omitempty"`
+}
+
+// ============================================================
+// ETCD STRESS
+// ============================================================
+
+type EtcdStressSpec struct {
+	Enabled         bool  `json:"enabled,omitempty"`
+	ConfigMapCount  int32 `json:"configMapCount,omitempty"`
+	ConfigMapSizeKB int32 `json:"configMapSizeKB,omitempty"`
+	SecretCount     int32 `json:"secretCount,omitempty"`
+	SecretSizeKB    int32 `json:"secretSizeKB,omitempty"`
+}
+
+// ============================================================
+// CONTROLLER MANAGER STRESS
+// ============================================================
+
+type ControllerManagerStressSpec struct {
+	Enabled                     bool  `json:"enabled,omitempty"`
+	DeploymentCount             int32 `json:"deploymentCount,omitempty"`
+	ReplicasPerDeployment       int32 `json:"replicasPerDeployment,omitempty"`
+	RecreateReplicaSets         bool  `json:"recreateReplicaSets,omitempty"`
+	AggressiveGarbageCollection bool  `json:"aggressiveGarbageCollection,omitempty"`
+}
+
+// ============================================================
+// OPERATOR STRESS
+// ============================================================
+
+type OperatorReconcileSpec struct {
+	MaxConcurrent    int32 `json:"maxConcurrent,omitempty"`
+	QPS              int32 `json:"qps,omitempty"`
+	Burst            int32 `json:"burst,omitempty"`
+	BaseDelaySeconds int32 `json:"baseDelaySeconds,omitempty"`
+	MaxDelaySeconds  int32 `json:"maxDelaySeconds,omitempty"`
+}
+
+type OperatorInformerSpec struct {
+	WatchPods        bool `json:"watchPods,omitempty"`
+	WatchConfigMaps  bool `json:"watchConfigMaps,omitempty"`
+	WatchDeployments bool `json:"watchDeployments,omitempty"`
+}
+
+type OperatorStressSpec struct {
+	Enabled   bool                  `json:"enabled,omitempty"`
+	Profile   string                `json:"profile,omitempty"`
+	Reconcile OperatorReconcileSpec `json:"reconcile,omitempty"`
+	Informer  OperatorInformerSpec  `json:"informer,omitempty"`
+}
+
+// ============================================================
+// POD LIFECYCLE STORM
+// ============================================================
+
+type PodLifecycleStormSpec struct {
+	Enabled                 bool  `json:"enabled,omitempty"`
+	RestartPodsEverySeconds int32 `json:"restartPodsEverySeconds,omitempty"`
+	DeletePodsRandomly      bool  `json:"deletePodsRandomly,omitempty"`
+	CrashLoopSimulation     bool  `json:"crashLoopSimulation,omitempty"`
+}
+
+// ============================================================
+// CONTROL PLANE TEST SPEC
+// ============================================================
 
 // ControlPlaneTestSpec defines the desired state of ControlPlaneTest
 // INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -29,13 +118,30 @@ import (
 // The following markers will use OpenAPI v3 schema to validate the value
 // More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
 
-// foo is an example field of ControlPlaneTest. Edit controlplanetest_types.go to remove/update
-// +optional
 type ControlPlaneTestSpec struct {
+	// ============================================================
+	// LEGACY SIMPLE MODE
+	// ============================================================
+
 	// +kubebuilder:validation:MinLength=1
 	Image    string `json:"image,omitempty"`
-	Replicas int32  `json:"replicas"`
+	Replicas int32  `json:"replicas,omitempty"`
+
+	// ============================================================
+	// STRESS SCENARIOS
+	// ============================================================
+
+	SchedulerStress         SchedulerStressSpec         `json:"schedulerStress,omitempty"`
+	APIServerStress         APIServerStressSpec         `json:"apiServerStress,omitempty"`
+	EtcdStress              EtcdStressSpec              `json:"etcdStress,omitempty"`
+	ControllerManagerStress ControllerManagerStressSpec `json:"controllerManagerStress,omitempty"`
+	OperatorStress          OperatorStressSpec          `json:"operatorStress,omitempty"`
+	PodLifecycleStorm       PodLifecycleStormSpec       `json:"podLifecycleStorm,omitempty"`
 }
+
+// ============================================================
+// STATUS
+// ============================================================
 
 // ControlPlaneTestStatus defines the observed state of ControlPlaneTest.
 // INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
@@ -54,9 +160,9 @@ type ControlPlaneTestSpec struct {
 //
 // The status of each condition is one of True, False, or Unknown.
 type ControlPlaneTestStatus struct {
-	DeploymentName     string             `json:"deploymentName,omitempty"`
+	DeploymentNames    []string           `json:"deploymentNames,omitempty"`
 	ServiceName        string             `json:"serviceName,omitempty"`
-	ConfigMapName      string             `json:"configMapName,omitempty"`
+	ConfigMapNames     []string           `json:"configMapNames,omitempty"`
 	ReadyReplicas      int32              `json:"readyReplicas,omitempty"`
 	AvailableReplicas  int32              `json:"availableReplicas,omitempty"`
 	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
@@ -70,11 +176,9 @@ type ControlPlaneTestStatus struct {
 type ControlPlaneTest struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitzero"`
-
 	// spec defines the desired state of ControlPlaneTest
 	// +required
 	Spec ControlPlaneTestSpec `json:"spec"`
-
 	// status defines the observed state of ControlPlaneTest
 	Status ControlPlaneTestStatus `json:"status,omitempty"`
 }

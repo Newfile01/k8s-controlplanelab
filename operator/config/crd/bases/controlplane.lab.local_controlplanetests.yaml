@@ -39,14 +39,131 @@ spec:
           spec:
             description: spec defines the desired state of ControlPlaneTest
             properties:
+              apiServerStress:
+                properties:
+                  aggressiveReconcile:
+                    type: boolean
+                  burst:
+                    format: int32
+                    type: integer
+                  enabled:
+                    type: boolean
+                  frequentStatusUpdates:
+                    type: boolean
+                  qps:
+                    format: int32
+                    type: integer
+                  recreateResources:
+                    type: boolean
+                type: object
+              controllerManagerStress:
+                properties:
+                  aggressiveGarbageCollection:
+                    type: boolean
+                  deploymentCount:
+                    format: int32
+                    type: integer
+                  enabled:
+                    type: boolean
+                  recreateReplicaSets:
+                    type: boolean
+                  replicasPerDeployment:
+                    format: int32
+                    type: integer
+                type: object
+              etcdStress:
+                properties:
+                  configMapCount:
+                    format: int32
+                    type: integer
+                  configMapSizeKB:
+                    format: int32
+                    type: integer
+                  enabled:
+                    type: boolean
+                  secretCount:
+                    format: int32
+                    type: integer
+                  secretSizeKB:
+                    format: int32
+                    type: integer
+                type: object
               image:
                 minLength: 1
                 type: string
+              operatorStress:
+                properties:
+                  enabled:
+                    type: boolean
+                  informer:
+                    properties:
+                      watchConfigMaps:
+                        type: boolean
+                      watchDeployments:
+                        type: boolean
+                      watchPods:
+                        type: boolean
+                    type: object
+                  profile:
+                    type: string
+                  reconcile:
+                    properties:
+                      baseDelaySeconds:
+                        format: int32
+                        type: integer
+                      burst:
+                        format: int32
+                        type: integer
+                      maxConcurrent:
+                        format: int32
+                        type: integer
+                      maxDelaySeconds:
+                        format: int32
+                        type: integer
+                      qps:
+                        format: int32
+                        type: integer
+                    type: object
+                type: object
+              podLifecycleStorm:
+                properties:
+                  crashLoopSimulation:
+                    type: boolean
+                  deletePodsRandomly:
+                    type: boolean
+                  enabled:
+                    type: boolean
+                  restartPodsEverySeconds:
+                    format: int32
+                    type: integer
+                type: object
               replicas:
                 format: int32
                 type: integer
-            required:
-            - replicas
+              schedulerStress:
+                properties:
+                  affinity:
+                    type: string
+                  antiAffinity:
+                    type: string
+                  deploymentCount:
+                    format: int32
+                    type: integer
+                  enabled:
+                    type: boolean
+                  nodeCount:
+                    format: int32
+                    type: integer
+                  nodeSelector:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  replicasPerDeployment:
+                    format: int32
+                    type: integer
+                  topologySpread:
+                    type: boolean
+                type: object
             type: object
           status:
             description: status defines the observed state of ControlPlaneTest
@@ -110,10 +227,14 @@ spec:
                   - type
                   type: object
                 type: array
-              configMapName:
-                type: string
-              deploymentName:
-                type: string
+              configMapNames:
+                items:
+                  type: string
+                type: array
+              deploymentNames:
+                items:
+                  type: string
+                type: array
               observedGeneration:
                 format: int64
                 type: integer
