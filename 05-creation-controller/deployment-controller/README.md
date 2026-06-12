@@ -1,4 +1,4 @@
-# 02 - REPERTOIRE POUR UN CONTROLLER DE DEPLOYMENT (GESTION DES PODS SOUS-TRAITEE À KUBERNETES)
+# 02 - 📦 REPERTOIRE POUR UN CONTROLLER DE DEPLOYMENT (GESTION DES PODS SOUS-TRAITEE À KUBERNETES)
 
 Ce répertoire regroupe les fichiers `_types.go` et `_controller.go` permettant d'implémenter une logique d'Operator Kubernetes basée sur les mécanismes natifs de Kubernetes :
 
