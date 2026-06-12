@@ -1,4 +1,4 @@
-# 🧹 REPERTOIRE POUR LA GESTION DES FINALIZERS (SUPPRESSION CONTROLEE DES RESSOURCES)
+# 03 - REPERTOIRE POUR LA GESTION DES FINALIZERS 🧹 (SUPPRESSION CONTROLEE DES RESSOURCES)
 
 Cette étape ajoute la gestion du cycle de suppression des Custom Resources grâce aux `Finalizers Kubernetes`.
 
