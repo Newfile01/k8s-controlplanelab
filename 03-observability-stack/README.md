@@ -50,6 +50,9 @@ minikube start \
 --extra-config=scheduler.bind-address=0.0.0.0 \
 --extra-config=controller-manager.bind-address=0.0.0.0
 
+# Activation du cluster par défaut
+minikube profile control-plane-lab
+
 # Puis
 kubectl -n kube-system edit cm kube-proxy
 # metricsBindAddress: 127.0.0.1:10249 devient 0.0.0.0:10249
