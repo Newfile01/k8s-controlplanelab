@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: operator
+    control-plane: controller-manager
+  name: operator-controller-manager-metrics-service
+  namespace: {{ .Values.namespace }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+  - name: https
+    port: {{ .Values.service.port }}
+    protocol: TCP
+    targetPort: 8443
+  selector:
+    app.kubernetes.io/name: operator
+    control-plane: controller-manager
+{{- if .Values.serviceMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: operator
+    control-plane: controller-manager
+    release: monitoring-stack
+  name: operator-controller-manager-metrics-monitor
+  namespace: {{ .Values.namespace }}
+spec:
+  endpoints:
+  - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    path: /metrics
+    port: https
+    scheme: https
+    tlsConfig:
+      insecureSkipVerify: true
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: operator
+      control-plane: controller-manager
+{{- end }}

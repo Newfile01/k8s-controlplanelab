@@ -1,0 +1,20 @@
+{{- if .Values.stressTests.etcd.enabled }}
+
+apiVersion: controlplane.lab.local/v1alpha1
+kind: ControlPlaneTest
+metadata:
+  name: etcd-stress
+  namespace: {{ .Values.namespace }}
+
+spec:
+  image: {{ .Values.stressTests.image }}
+  replicas: {{ .Values.stressTests.replicas }}
+
+  etcdStress:
+    enabled: true
+    configMapCount: {{ .Values.stressTests.etcd.configMapCount }}
+    configMapSizeKB: {{ .Values.stressTests.etcd.configMapSizeKB }}
+    secretCount: {{ .Values.stressTests.etcd.secretCount }}
+    secretSizeKB: {{ .Values.stressTests.etcd.secretSizeKB }}
+
+{{- end }}

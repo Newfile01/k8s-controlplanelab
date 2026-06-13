@@ -1,0 +1,18 @@
+{{- if .Values.stressTests.scheduler.enabled }}
+
+apiVersion: controlplane.lab.local/v1alpha1
+kind: ControlPlaneTest
+metadata:
+  name: scheduler-stress
+
+spec:
+  image: {{ .Values.stressTests.image }}
+  replicas: {{ .Values.stressTests.replicas }}
+
+  schedulerStress:
+    enabled: true
+    deploymentCount: 10
+    replicasPerDeployment: 10
+    topologySpread: true
+
+{{- end }}
