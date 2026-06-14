@@ -13,9 +13,9 @@ Composants pouvant être sollicités :
 
 ---
 
-# 🚀 Installation via Helm OCI
+## 🚀 Installation via Helm OCI
 
-## 🔐 Authentification GHCR
+### 🔐 Authentification GHCR
 
 Créer un token GitHub avec permissions : `read:packages`
 
@@ -28,7 +28,7 @@ echo $CR_PAT | helm registry login ghcr.io \
 --password-stdin
 ```
 
-## 📦 Installation standard
+### 📦 Installation standard
 
 ```bash
 helm install controlplane-operator \
@@ -37,7 +37,7 @@ oci://ghcr.io/newfile01/charts/controlplane-operator \
 --create-namespace
 ```
 
-## ⚡ Installation avec scénarios de stress
+### ⚡ Installation avec scénarios de stress
 Ajouter ensuite les options :
 * Scheduler stress : `--set stressTests.scheduler.enabled=true`
 * API Server stress : `--set stressTests.apiServer.enabled=true`
@@ -56,9 +56,8 @@ oci://ghcr.io/newfile01/charts/controlplane-operator \
 --set stressTests.etcd.enabled=true
 ```
 
----
 
-# 🔎 Vérification rapide
+### 🔎 Vérification rapide
 
 ```bash
 # Vérifier le release Helm
@@ -85,7 +84,7 @@ svc/operator-controller-manager-metrics-service \
 
 ---
 
-# 🧪 Création d'une Custom Resource `ControlPlaneTest`
+## 🧪 Création d'une Custom Resource `ControlPlaneTest`
 
 L’opérateur fonctionne à partir de ressources Kubernetes personnalisées (`Custom Resources`) de type :
 
@@ -96,9 +95,8 @@ kind: ControlPlaneTest
 
 Chaque ressource permet d’activer un ou plusieurs scénarios de stress ciblant différents composants du control-plane Kubernetes.
 
----
 
-## 📄 Squelette global d'une CR
+### 📄 Squelette global d'une CR
 
 ```yaml
 apiVersion: controlplane.lab.local/v1alpha1
@@ -148,9 +146,7 @@ vi my-scenario.yaml
 kubectl apply -f my-scenario.yaml
 ```
 
----
-
-## 🔎 Vérifications
+### 🔎 Vérifications
 
 ```bash
 # Vérifier la CR
