@@ -11,8 +11,8 @@ spec:
 
   schedulerStress:
     enabled: true
-    deploymentCount: 10
-    replicasPerDeployment: 10
-    topologySpread: true
+    deploymentCount: {{ .Values.stressTests.scheduler.deploymentCount }}
+    replicasPerDeployment: {{ .Values.stressTests.scheduler.replicasPerDeployment }}
+    topologySpread: {{ .Values.stressTests.scheduler.topologySpread }}
 
 {{- end }}

@@ -69,9 +69,9 @@ stressTests:
 
   scheduler:
     enabled: false
-    deploymentCount: 10
-    replicasPerDeployment: 10
-    topologySpread: true
+  deploymentCount: 50
+  replicasPerDeployment: 50
+  topologySpread: true
 
   apiServer:
     enabled: false
@@ -83,10 +83,10 @@ stressTests:
 
   etcd:
     enabled: false
-    configMapCount: 100
-    configMapSizeKB: 128
-    secretCount: 50
-    secretSizeKB: 64
+    configMapCount: 5000
+  configMapSizeKB: 64
+  secretCount: 2000
+  secretSizeKB: 32
 
 
 # This block is for setting up the ingress for more information can be found here: https://kubernetes.io/docs/concepts/services-networking/ingress/
