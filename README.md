@@ -135,9 +135,7 @@ spec:
     enabled: false
 ```
 
----
-
-## ⚙️ Déploiement de la CR
+### ⚙️ Déploiement de la CR
 
 ```bash
 # Création du fichier avec Vi ou Nano
