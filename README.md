@@ -28,8 +28,6 @@ echo $CR_PAT | helm registry login ghcr.io \
 --password-stdin
 ```
 
----
-
 ## 📦 Installation standard
 
 ```bash
@@ -38,8 +36,6 @@ oci://ghcr.io/newfile01/charts/controlplane-operator \
 -n operator-system \
 --create-namespace
 ```
-
----
 
 ## ⚡ Installation avec scénarios de stress
 Ajouter ensuite les options :
