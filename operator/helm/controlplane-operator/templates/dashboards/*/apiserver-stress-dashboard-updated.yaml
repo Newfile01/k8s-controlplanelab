@@ -1,0 +1,299 @@
+{{- if .Values.dashboards.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apiserver-stress-dashboard-updated
+  namespace: {{ .Values.grafana.namespace }}
+  labels:
+    grafana_dashboard: "1"
+
+data:
+  apiserver-stress-dashboard-updated.json: |
+    {
+      "title": "API SERVER STRESS UPDATED",
+      "tags": [
+          "kubernetes",
+          "apiserver",
+          "stress-test"
+        ],
+      "panels": [
+
+        {
+          "title": "CURRENT INQUEUE REQUESTS (requêtes en attente API)",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "sum by(priority_level)(apiserver_flowcontrol_current_inqueue_requests)",
+              "legendFormat": "{{`{{priority_level}}`}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": ""
+            }
+          }
+        },
+
+        {
+          "title": "WATCH CACHE REQUESTS (activité watch cache)",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "sum by(resource)(rate(apiserver_cache_list_total{resource=~\"pods|deployments|replicasets|services|endpoints|endpointslices|configmaps|controlplanetests\"}[5m]))",
+              "legendFormat": "{{`{{resource}}`}}",
+              "refId": "A"
+            },
+            {
+              "expr": "sum by(resource)(rate(apiserver_cache_list_returned_objects_total{resource=~\"pods|deployments|replicasets|services|endpoints|endpointslices|configmaps|controlplanetests\"}[5m]))",
+              "legendFormat": "Returned {{`{{resource}}`}}",
+              "refId": "B"
+            },
+            {
+              "expr": "sum by(resource)(rate(apiserver_cache_list_fetched_objects_total{resource=~\"pods|deployments|replicasets|services|endpoints|endpointslices|configmaps|controlplanetests\"}[5m]))",
+              "legendFormat": "Fetched {{`{{resource}}`}}",
+              "refId": "C"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": ""
+            }
+          }
+        },
+
+        {
+          "title": "WATCH EVENTS TOTAL (événements distribués)",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "sum by(resource)(rate(apiserver_watch_events_total{resource=~\"pods|deployments|replicasets|services|endpoints|endpointslices|configmaps|controlplanetests\"}[5m]))",
+              "legendFormat": "{{`{{resource}}`}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": ""
+            }
+          }
+        },
+
+        {
+          "title": "WATCH EVENTS SIZES (taille événements watch)",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.99,sum by(le,resource)(rate(apiserver_watch_events_sizes_bucket{resource=~\"pods|deployments|replicasets|services|endpoints|endpointslices|configmaps|controlplanetests\"}[5m])))",
+              "legendFormat": "{{`{{resource}}`}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": ""
+            }
+          }
+        },
+
+        {
+          "title": "WATCH EVENTS VOLUME (volume diffusion watch)",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "sum by(resource)(rate(apiserver_watch_events_sizes_sum{resource=~\"pods|deployments|replicasets|services|endpoints|endpointslices|configmaps|controlplanetests\"}[5m]))",
+              "legendFormat": "{{`{{resource}}`}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": ""
+            }
+          }
+        },
+
+        {
+          "title": "RESOURCE OBJECTS (objets Kubernetes stockés)",
+          "type": "bargauge",
+          "targets": [
+            {
+              "expr": "sum by(resource)(apiserver_resource_objects{resource=~\"pods|deployments|replicasets|services|endpoints|endpointslices|configmaps|controlplanetests|secrets\"})",
+              "legendFormat": "{{`{{resource}}`}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": ""
+            }
+          }
+        },
+
+        {
+          "title": "RESOURCE SIZE ESTIMATE (taille logique ressources)",
+          "type": "bargauge",
+          "targets": [
+            {
+              "expr": "sum by(resource)(apiserver_resource_size_estimate_bytes{resource=~\"pods|deployments|replicasets|services|endpoints|endpointslices|configmaps|controlplanetests|secrets\"})",
+              "legendFormat": "{{`{{resource}}`}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": ""
+            }
+          }
+        },
+
+        {
+          "title": "STORAGE SIZE BYTES (taille physique ETCD)",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "apiserver_storage_size_bytes",
+              "legendFormat": "Storage size",
+              "refId": "A"
+            },
+            {
+              "expr": "sum(apiserver_resource_size_estimate_bytes)",
+              "legendFormat": "Logical size",
+              "refId": "B"
+            },
+            {
+              "expr": "sum(apiserver_resource_objects)",
+              "legendFormat": "Objects count",
+              "refId": "C"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": ""
+            }
+          }
+        },
+
+        {
+          "title": "ETCD REQUESTS TOTAL (activité ETCD)",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "sum by(operation)(rate(etcd_requests_total[5m]))",
+              "legendFormat": "{{`{{operation}}`}}",
+              "refId": "A"
+            },
+            {
+              "expr": "sum(rate(etcd_server_client_requests_total[5m]))",
+              "legendFormat": "Req clientes",
+              "refId": "B"
+            },
+            {
+              "expr": "sum(rate(etcd_server_proposals_applied_total[5m]))",
+              "legendFormat": "Proposals applied",
+              "refId": "C"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": ""
+            }
+          }
+        },
+
+        {
+          "title": "MVCC EVENTS TOTAL (activité MVCC)",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "sum(rate(etcd_debugging_mvcc_events_total[5m]))",
+              "legendFormat": "Events MVCC",
+              "refId": "A"
+            },
+            {
+              "expr": "sum(etcd_debugging_mvcc_watcher_total)",
+              "legendFormat": "Watchers",
+              "refId": "B"
+            },
+            {
+              "expr": "sum(rate(etcd_debugging_mvcc_watch_stream_total[5m]))",
+              "legendFormat": "Streams watch",
+              "refId": "C"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": ""
+            }
+          }
+        },
+
+        {
+          "title": "BACKEND COMMIT DURATION (latence écriture backend)",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.99,sum(rate(etcd_disk_backend_commit_duration_seconds_bucket[5m])) by (le))",
+              "legendFormat": "Commit P99",
+              "refId": "A"
+            },
+            {
+              "expr": "sum(rate(etcd_disk_backend_commit_duration_seconds_sum[5m]))",
+              "legendFormat": "Temps commit total",
+              "refId": "B"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": ""
+            }
+          }
+        },
+
+        {
+          "title": "WAL WRITE BYTES TOTAL (écriture journal WAL)",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "sum(rate(etcd_disk_wal_write_bytes_total[5m]))",
+              "legendFormat": "Volume WAL",
+              "refId": "A"
+            },
+            {
+              "expr": "sum(rate(etcd_debugging_mvcc_total_put_size_in_bytes[5m]))",
+              "legendFormat": "Volume PUT",
+              "refId": "B"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": ""
+            }
+          }
+        },
+
+        {
+          "title": "SCHEDULER ACTIVITY (activité scheduler)",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "sum by(result)(rate(scheduler_schedule_attempts_total[5m]))",
+              "legendFormat": "{{`{{result}}`}}",
+              "refId": "A"
+            },
+            {
+              "expr": "scheduler_pending_pods{queue=~\"activeQ|backoffQ|unschedulable|gated\"}",
+              "legendFormat": "{{`{{queue}}`}}",
+              "refId": "B"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": ""
+            }
+          }
+        }
+
+      ]
+    }
+{{- end }}

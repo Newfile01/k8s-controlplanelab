@@ -1,0 +1,22 @@
+apiVersion: controlplane.lab.local/v1alpha1
+kind: ControlPlaneTest
+
+metadata:
+  name: controller-test
+  namespace: operator-system
+
+spec:
+  image: nginx:latest
+  replicas: 50
+
+  controllerManagerStress:
+    enabled: true
+    deploymentCount: 50
+    replicasPerDeployment: 10
+    recreateReplicaSets: true
+    aggressiveGarbageCollection: true
+
+  podLifecycleStorm:
+    enabled: false
+    deletePodsRandomly: true
+    restartPodsEverySeconds: 10

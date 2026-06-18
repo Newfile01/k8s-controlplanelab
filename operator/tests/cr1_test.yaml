@@ -1,0 +1,24 @@
+apiVersion: controlplane.lab.local/v1alpha1
+kind: ControlPlaneTest
+
+metadata:
+  name: t1
+  namespace: operator-system
+
+spec:
+
+  # ============================================================
+  # LEGACY SIMPLE MODE
+  # ============================================================
+
+  image: nginx
+
+  # ============================================================
+  # SCHEDULER STRESS
+  # ============================================================
+
+  schedulerStress:
+    enabled: true
+    nodeCount: 4
+    deploymentCount: 10
+    replicasPerDeployment: 40

@@ -1,0 +1,24 @@
+apiVersion: controlplane.lab.local/v1alpha1
+kind: ControlPlaneTest
+
+metadata:
+  name: api-flood
+  namespace: operator-system
+
+spec:
+  image: nginx:latest
+
+  apiServerStress:
+    enabled: false
+    frequentStatusUpdates: false
+    aggressiveReconcile: false
+    recreateResources: false
+
+  schedulerStress:
+    enabled: true
+    deploymentCount: 10
+    replicasPerDeployment: 10
+  
+  podLifecycleStorm:
+    enabled: false
+    restartPodsEverySeconds: 15
