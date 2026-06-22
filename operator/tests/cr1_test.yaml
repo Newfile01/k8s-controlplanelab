@@ -19,6 +19,6 @@ spec:
 
   schedulerStress:
     enabled: true
-    nodeCount: 4
+    # nodeCount: 4
     deploymentCount: 10
-    replicasPerDeployment: 40
+    replicasPerDeployment: 30

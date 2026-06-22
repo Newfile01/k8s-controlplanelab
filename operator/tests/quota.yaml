@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ResourceQuota
+
+metadata:
+  name: operator-quota
+  namespace: operator-system
+# Appliquée aussi au namespace et surveillera les ressources créées dedans
+spec:
+  hard:
+    # limite de pods
+    pods: "200"
+    # resources max demandée pour le namespace si possible
+    requests.cpu: "6"
+    requests.memory: 10Gi
+    # limite fixée
+    limits.cpu: "8"
+    limits.memory: 16Gi

@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: operator-default-limits
+  namespace: operator-system
+spec:
+  limits:
+  - type: Container
+    # Demandées par pods
+    defaultRequest:
+      cpu: 25m
+      memory: 32Mi
+    # Limites
+    default:
+      cpu: 25m
+      memory: 40Mi
+
+# Budget recherché
+# CPU : 8 / 300 = 0.026 CPU
+# RAM : 12 Gi / 300 = 40 Mi
+#
+# Conso attendue
+# 300 × 25m = 7.5 CPU
+# 300 × 32Mi = 9.3 Gi
