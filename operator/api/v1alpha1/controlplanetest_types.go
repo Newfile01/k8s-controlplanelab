@@ -29,50 +29,47 @@ import (
 // Ces paramètres ne modifient PAS la forme de la charge.
 // Ils influencent uniquement le placement des Pods
 // sur les nœuds du cluster.
-type SchedulerStressSpec struct {
+type LabelSelectorSpec struct {
+	Key   string `json:"key,omitempty"`
+	Value string `json:"value,omitempty"`
+}
 
+type SchedulerStressSpec struct {
 	// Active le scénario Scheduler Stress.
 	Enabled bool `json:"enabled,omitempty"`
-
-	// Nombre de nœuds simulés ou ciblés : ne déploiera pas la charge sur plus de noeuds
-	NodeCount int32 `json:"nodeCount,omitempty"`
-
-	// Sélection des nœuds autorisés : indiquer le label de sélection du noeud (équivalent à un toleration)
+	// Nombre de nœuds ciblés par le scénario, utilisés par certaines stratégies de placement. En attente d'upgrade future
+	// NodeCount int32 `json:"nodeCount,omitempty"`
+	// Sélection stricte des nœuds via labels Kubernetes.
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
-
 	// Répartition homogène des Pods = équilibrage
 	TopologySpread bool `json:"topologySpread,omitempty"`
-
-	// PodAffinity, correspond à regrouper les pods ensemble de manière plus ou moins forcée
-	Affinity string `json:"affinity,omitempty"`
-
-	// PodAntiAffinit, forcera la séparation des pods selon un critère donné
-	AntiAffinity string `json:"antiAffinity,omitempty"`
+	// Valeurs possibles pour AffinityMode et AntiAffinityMode :
+	// "soft" = PreferredDuringSchedulingIgnoredDuringExecution
+	// "hard" = RequiredDuringSchedulingIgnoredDuringExecution
+	//
+	// Utilisé pour forcer le regroupement avec autres pods (par label)
+	AffinityMode     string            `json:"affinityMode,omitempty"`
+	AffinitySelector LabelSelectorSpec `json:"affinitySelector,omitempty"`
+	// PodAntiAffinity, forcera la séparation des pods selon un critère donné
+	AntiAffinityMode     string            `json:"antiAffinityMode,omitempty"`
+	AntiAffinitySelector LabelSelectorSpec `json:"antiAffinitySelector,omitempty"`
 }
 
 // ============================================================
-// API SERVER STRESS
+// API SERVER & ETCD STRESS
 // ============================================================
 
-type APIServerStressSpec struct {
-	Enabled               bool  `json:"enabled,omitempty"`
-	FrequentStatusUpdates bool  `json:"frequentStatusUpdates,omitempty"`
-	AggressiveReconcile   bool  `json:"aggressiveReconcile,omitempty"`
+type APIServerETCDStressSpec struct {
+	Enabled               bool `json:"enabled,omitempty"`
+	FrequentStatusUpdates bool `json:"frequentStatusUpdates,omitempty"`
+	AggressiveReconcile   bool `json:"aggressiveReconcile,omitempty"`
+	// Nombre de millisecondes avant requeue
+	ReconcileRequeueDelay int32 `json:"reconcileRequeueDelay,omitempty"`
 	RecreateResources     bool  `json:"recreateResources,omitempty"`
-	QPS                   int32 `json:"qps,omitempty"`
-	Burst                 int32 `json:"burst,omitempty"`
-}
-
-// ============================================================
-// ETCD STRESS
-// ============================================================
-
-type EtcdStressSpec struct {
-	Enabled         bool  `json:"enabled,omitempty"`
-	ConfigMapCount  int32 `json:"configMapCount,omitempty"`
-	ConfigMapSizeKB int32 `json:"configMapSizeKB,omitempty"`
-	SecretCount     int32 `json:"secretCount,omitempty"`
-	SecretSizeKB    int32 `json:"secretSizeKB,omitempty"`
+	// Nombre de millisecondes avant requeue
+	RecreateRequeueDelay int32 `json:"recreateRequeueDelay,omitempty"`
+	QPS                  int32 `json:"qps,omitempty"`
+	Burst                int32 `json:"burst,omitempty"`
 }
 
 // ============================================================
@@ -81,10 +78,10 @@ type EtcdStressSpec struct {
 
 type ControllerManagerStressSpec struct {
 	Enabled                     bool  `json:"enabled,omitempty"`
-	DeploymentCount             int32 `json:"deploymentCount,omitempty"`
-	ReplicasPerDeployment       int32 `json:"replicasPerDeployment,omitempty"`
 	RecreateReplicaSets         bool  `json:"recreateReplicaSets,omitempty"`
+	ReplicaRecreateDelay        int32 `json:"replicaRecreateDelay,omitempty"`
 	AggressiveGarbageCollection bool  `json:"aggressiveGarbageCollection,omitempty"`
+	GarbageCollectionDelay      int32 `json:"garbageCollectionDelay,omitempty"`
 }
 
 // ============================================================
@@ -92,11 +89,16 @@ type ControllerManagerStressSpec struct {
 // ============================================================
 
 type OperatorReconcileSpec struct {
-	MaxConcurrent    int32 `json:"maxConcurrent,omitempty"`
-	QPS              int32 `json:"qps,omitempty"`
-	Burst            int32 `json:"burst,omitempty"`
+	// Nbre réconciliations simultanées possibles
+	MaxConcurrent int32 `json:"maxConcurrent,omitempty"`
+	// QPS autorisées pour le pod operator_controller
+	QPS int32 `json:"qps,omitempty"`
+	// Explosion/Pic de requêtes recevable
+	Burst int32 `json:"burst,omitempty"`
+	// Délai (avant réconciliation ?)
 	BaseDelaySeconds int32 `json:"baseDelaySeconds,omitempty"`
-	MaxDelaySeconds  int32 `json:"maxDelaySeconds,omitempty"`
+	// Délai maximum avant nouvelle réconciliation
+	MaxDelaySeconds int32 `json:"maxDelaySeconds,omitempty"`
 }
 
 type OperatorInformerSpec struct {
@@ -117,10 +119,23 @@ type OperatorStressSpec struct {
 // ============================================================
 
 type PodLifecycleStormSpec struct {
-	Enabled                 bool  `json:"enabled,omitempty"`
-	RestartPodsEverySeconds int32 `json:"restartPodsEverySeconds,omitempty"`
-	DeletePodsRandomly      bool  `json:"deletePodsRandomly,omitempty"`
-	CrashLoopSimulation     bool  `json:"crashLoopSimulation,omitempty"`
+	Enabled             bool  `json:"enabled,omitempty"`
+	DeletePodsRandomly  bool  `json:"deletePodsRandomly,omitempty"`
+	DeletePodsDelay     int32 `json:"deletePodsDelay,omitempty"`
+	CrashLoopSimulation bool  `json:"crashLoopSimulation,omitempty"`
+}
+
+// ============================================================
+// RESSOURCES PAR PODS
+// ============================================================
+
+type ResourceSpec struct {
+	// Ressources demandées
+	CPURequest    string `json:"cpuRequest,omitempty"`
+	MemoryRequest string `json:"memoryRequest,omitempty"`
+	// Max autorisé à Kubernetes
+	CPULimit    string `json:"cpuLimit,omitempty"`
+	MemoryLimit string `json:"memoryLimit,omitempty"`
 }
 
 // ============================================================
@@ -132,47 +147,41 @@ type PodLifecycleStormSpec struct {
 // Important: Run "make" to regenerate code after modifying this file
 // The following markers will use OpenAPI v3 schema to validate the value
 // More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
+type CustomLabelSpec struct {
+	Key   string `json:"key,omitempty"`
+	Value string `json:"value,omitempty"`
+}
 
 type ControlPlaneTestSpec struct {
 	// ============================================================
 	// WORKLOAD DEFINITION
 	// ============================================================
-
+	ContainerName   string          `json:"containerName"`
+	ResourcesPerPod ResourceSpec    `json:"resourcesPerPod,omitempty"`
+	CustomLabel     CustomLabelSpec `json:"customLabel,omitempty"`
 	// Image utilisée pour les Pods générés.
-	Image string `json:"image,omitempty"`
-
-	// Mode simple historique.
-	// Nombre de replicas pour un unique Deployment.
-	Replicas int32 `json:"replicas,omitempty"`
-
+	Image string `json:"image"`
 	// Nombre de Deployments à générer.
-	//
-	// Exemple :
-	// deploymentCount: 10
-	//
-	// => deployment-0
-	// => deployment-1
-	// => deployment-2
-	// ...
-	DeploymentCount int32 `json:"deploymentCount,omitempty"`
-
+	DeploymentCount int32 `json:"deploymentCount"`
 	// Nombre de Pods par Deployment.
-	//
-	// Exemple :
-	// replicasPerDeployment: 30
-	//
-	// deployment-0 => 30 Pods
-	// deployment-1 => 30 Pods
-	// ...
 	ReplicasPerDeployment int32 `json:"replicasPerDeployment,omitempty"`
+
+	// Définition des ports d'accès et cible de l'application déployé via la CR
+	ServicePort int32 `json:"servicePort,omitempty"`
+	TargetPort  int32 `json:"targetPort,omitempty"`
+
+	// ConfigMaps & Secrets
+	ConfigMapCount  int32 `json:"configMapCount,omitempty"`
+	ConfigMapSizeKB int32 `json:"configMapSizeKB,omitempty"`
+	SecretCount     int32 `json:"secretCount,omitempty"`
+	SecretSizeKB    int32 `json:"secretSizeKB,omitempty"`
 
 	// ============================================================
 	// STRESS SCENARIOS
 	// ============================================================
 
 	SchedulerStress         SchedulerStressSpec         `json:"schedulerStress,omitempty"`
-	APIServerStress         APIServerStressSpec         `json:"apiServerStress,omitempty"`
-	EtcdStress              EtcdStressSpec              `json:"etcdStress,omitempty"`
+	APIServerETCDStress     APIServerETCDStressSpec     `json:"apiServerEtcdStress,omitempty"`
 	ControllerManagerStress ControllerManagerStressSpec `json:"controllerManagerStress,omitempty"`
 	OperatorStress          OperatorStressSpec          `json:"operatorStress,omitempty"`
 	PodLifecycleStorm       PodLifecycleStormSpec       `json:"podLifecycleStorm,omitempty"`
@@ -202,10 +211,12 @@ type ControlPlaneTestStatus struct {
 	DeploymentNames    []string           `json:"deploymentNames,omitempty"`
 	ServiceName        string             `json:"serviceName,omitempty"`
 	ConfigMapNames     []string           `json:"configMapNames,omitempty"`
+	SecretNames        []string           `json:"secretNames,omitempty"`
 	ReadyReplicas      int32              `json:"readyReplicas,omitempty"`
 	AvailableReplicas  int32              `json:"availableReplicas,omitempty"`
 	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
 	Conditions         []metav1.Condition `json:"conditions,omitempty"`
+	LastStatusUpdate   metav1.Time        `json:"lastStatusUpdate,omitempty"`
 }
 
 // +kubebuilder:object:root=true

@@ -1,24 +1,26 @@
 /*
-Copyright 2026.
+	Copyright 2026.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+		http://www.apache.org/licenses/LICENSE-2.0
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
 */
 
 package controller
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"maps"
 	"math/rand"
 	"reflect"
 	"strings"
@@ -30,6 +32,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 	intstr "k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -129,7 +132,6 @@ var (
 	// ============================================================
 	// SCHEDULER STRESS METRICS
 	// ============================================================
-
 	deploymentsGeneresGauge = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "controlplanetest_deployments_generes",
@@ -169,7 +171,6 @@ var (
 	// ============================================================
 	// API SERVER STRESS METRICS
 	// ============================================================
-
 	statusUpdatesTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "controlplanetest_status_updates_total",
@@ -178,7 +179,7 @@ var (
 		[]string{
 			"cr",
 			"namespace",
-			"profile",
+			"scenario",
 		},
 	)
 
@@ -190,26 +191,25 @@ var (
 		[]string{
 			"cr",
 			"namespace",
-			"profile",
+			"scenario",
 		},
 	)
 
 	resourcesRecreatedTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "controlplanetest_resources_recreated_total",
-			Help: "Nombre total de ressources recreees",
+			Help: "Nombre total de ressources recrées à chaque réconciliation",
 		},
 		[]string{
 			"cr",
 			"namespace",
-			"profile",
+			"scenario",
 		},
 	)
 
 	// ============================================================
 	// POD LIFECYCLE STORM METRICS
 	// ============================================================
-
 	podsSupprimesTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "controlplanetest_pods_supprimes_total",
@@ -218,14 +218,13 @@ var (
 		[]string{
 			"cr",
 			"namespace",
-			"profile",
+			"scenario",
 		},
 	)
 
 	// ============================================================
 	// CONFIGURATION SNAPSHOT METRICS
 	// ============================================================
-
 	configurationScenarioInfo = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "controlplanetest_configuration_info",
@@ -244,6 +243,7 @@ var (
 			"recreate_resources",
 			"podstorm_enabled",
 			"delete_pods_randomly",
+			"crashloop_simulation",
 		},
 	)
 )
@@ -287,6 +287,7 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	debutReconciliation := time.Now()
 	typeReconciliation := "globale"
 	var requeueResult *ctrl.Result
+	var err error
 
 	// "Defer" Déclenche la fonction suivante à chaque "return" de la fonction dans laquelle elle se trouve
 	// Ici on veut mesurer les durées pour chaque boucle de réconciliation : CREATION, UPDATE, STATUS, ERREUR, SUPPRESSION, etc...
@@ -320,7 +321,7 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	fmt.Println("🖥️🔍📦 │ Récupération des informations de la Custom Resource ...")
 
 	// GET Kubernetes API : récupération de la CR correspondant à la requête
-	err := r.Get(ctx, req.NamespacedName, controlPlaneTest)
+	err = r.Get(ctx, req.NamespacedName, controlPlaneTest)
 	if err != nil {
 
 		// IgnoreNotFound() :
@@ -370,7 +371,6 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if controlPlaneTest.ObjectMeta.DeletionTimestamp.IsZero() {
 		// Vérification présence finalizer
 		if !controllerutil.ContainsFinalizer(controlPlaneTest, finalizerName) {
-
 			fmt.Println("🖥️⬆️🔚 │ Ajout du Finalizer ...")
 
 			// Modification locale de la structure Go
@@ -379,17 +379,14 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			// UPDATE Kubernetes API : persistance réelle du finalizer dans le cluster
 			fmt.Println("🖥️🔄📦 │ UPDATE Custom Resource avec Finalizer ...")
 
-			err := r.Update(ctx, controlPlaneTest)
+			err = r.Update(ctx, controlPlaneTest)
 			if err != nil {
-
 				fmt.Println("🖥️🔄❌ │ Impossible d'ajouter le Finalizer")
-
 				erreursReconciliationTotal.Inc()
 				return ctrl.Result{}, err
 			}
 
 			fmt.Println("🖥️🔄✅ │ Finalizer ajouté avec succès")
-
 			// Nouvelle reconciliation forcée
 			return ctrl.Result{Requeue: true}, nil
 		}
@@ -408,13 +405,13 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			// - suppression cloud provider
 			// etc...
 
-			// Modification locale de la structure Go
+			// On retire le Finalizer pour permettre la suppression de la CR
 			controllerutil.RemoveFinalizer(controlPlaneTest, finalizerName)
 
 			// UPDATE Kubernetes API : suppression réelle du finalizer dans le cluster
 			fmt.Println("🖥️🔄📦 │ UPDATE Custom Resource sans Finalizer ...")
 
-			err := r.Update(ctx, controlPlaneTest)
+			err = r.Update(ctx, controlPlaneTest)
 			if err != nil {
 
 				fmt.Println("🖥️🔄❌ │ Impossible de supprimer le Finalizer")
@@ -431,23 +428,8 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	// =========================================================
-	// ******** GESTION DU DEPLOYMENT ********
-	// =========================================================
-	// L'objectif est de maintenir :
-	// Etat désiré (CR) == Etat réel (Deployment)
-	// Toute divergence détectée sera corrigée automatiquement par l'opérateur.
-
-	// Noms attendus
-	serviceName := controlPlaneTest.Name + "-service"
-
-	// Liste des ConfigMaps gérées par cette CR
-	var configMapNames []string
-
-	// Liste des Deployments gérés par cette CR
-	var deploymentNames []string
-
-	// =========================================================
-	// WORKLOAD DEFINITION
+	// $$$$$$$$$$$$$$ WORKLOAD DEFINITION $$$$$$$$$$$$
+	// $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 	// =========================================================
 	//
 	// Cette section définit la forme de la charge
@@ -465,51 +447,210 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// charge comme base de travail.
 	//==============================================
 
-	// Compatibilité avec l'ancien mode simple.
-	deploymentCount := int32(1)
-	if controlPlaneTest.Spec.DeploymentCount > 0 {
-		deploymentCount = controlPlaneTest.Spec.DeploymentCount
+	// Noms attendus
+	serviceName := controlPlaneTest.Name + "-service"
+	// Liste des ConfigMaps gérées par cette CR
+	var configMapNames []string
+	// Liste des Deployments gérés par cette CR
+	var deploymentNames []string
+	// Liste pour accueilir les noms des Secrets gérés par la CR
+	var secretNames []string
+
+	//==============================================
+	// ******* RECUPERATION PARAMETRES CR *******
+	//==============================================
+
+	containerName := controlPlaneTest.Spec.ContainerName
+	customLabelKey := controlPlaneTest.Spec.CustomLabel.Key
+	customLabelValue := controlPlaneTest.Spec.CustomLabel.Value
+
+	if customLabelKey == "app" {
+		return ctrl.Result{},
+			fmt.Errorf("label 'app' réservé par Opérateur")
 	}
 
-	// Compatibilité avec l'ancien champ Replicas.
-	replicasPerDeployment := controlPlaneTest.Spec.Replicas
-	if controlPlaneTest.Spec.ReplicasPerDeployment > 0 {
-		replicasPerDeployment = controlPlaneTest.Spec.ReplicasPerDeployment
+	// ---------- IMAGE ----------
+	imagePods := controlPlaneTest.Spec.Image
+
+	if imagePods == "" {
+		fmt.Println("😵❌📝 │ Spec.Image vide")
+		typeReconciliation = "err_invalid_image"
+		erreursReconciliationTotal.Inc()
+
+		return ctrl.Result{}, fmt.Errorf("spec.image is required")
 	}
+
+	// ---------- DEPLOYMENTS (obligatoire) ----------
+	deploymentCount := controlPlaneTest.Spec.DeploymentCount
+	if deploymentCount <= 0 {
+		deploymentCount = 1
+	}
+
+	// ---------- REPLICAS (obligatoire) ----------
+	replicasPerDeployment := controlPlaneTest.Spec.ReplicasPerDeployment
+	if replicasPerDeployment <= 0 {
+		replicasPerDeployment = 1
+	}
+
+	// ---------- RESOURCES (optionnel) ----------
+	cpuRequest := controlPlaneTest.Spec.ResourcesPerPod.CPURequest
+	cpuLimit := controlPlaneTest.Spec.ResourcesPerPod.CPULimit
+
+	memoryRequest := controlPlaneTest.Spec.ResourcesPerPod.MemoryRequest
+	memoryLimit := controlPlaneTest.Spec.ResourcesPerPod.MemoryLimit
+
+	// Anti crash CPU/RAM spec
+	// Demandes
+	var requests corev1.ResourceList
+
+	if cpuRequest != "" || memoryRequest != "" {
+		requests = corev1.ResourceList{}
+	}
+
+	if cpuRequest != "" {
+		requests[corev1.ResourceCPU] =
+			resource.MustParse(cpuRequest)
+	}
+
+	if memoryRequest != "" {
+		requests[corev1.ResourceMemory] =
+			resource.MustParse(memoryRequest)
+	}
+
+	// Limites
+	var limits corev1.ResourceList
+
+	if cpuLimit != "" || memoryLimit != "" {
+		limits = corev1.ResourceList{}
+	}
+
+	if cpuLimit != "" {
+		limits[corev1.ResourceCPU] =
+			resource.MustParse(cpuLimit)
+	}
+
+	if memoryLimit != "" {
+		limits[corev1.ResourceMemory] =
+			resource.MustParse(memoryLimit)
+	}
+
+	// ---------- SERVICE (optionnel) ----------
+	servicePort := controlPlaneTest.Spec.ServicePort
+	if servicePort <= 0 {
+		servicePort = 80
+	}
+
+	targetPort := controlPlaneTest.Spec.TargetPort
+	if targetPort <= 0 {
+		targetPort = 80
+	}
+
+	// ---------- CONFIGMAPS (optionnel) ----------
+	configMapCount := controlPlaneTest.Spec.ConfigMapCount
+	configMapSizeKB := controlPlaneTest.Spec.ConfigMapSizeKB
+
+	// ---------- SECRETS (optionnel) ----------
+	secretCount := controlPlaneTest.Spec.SecretCount
+	secretSizeKB := controlPlaneTest.Spec.SecretSizeKB
+
+	// =====================================================
+	// CONFIGURATION STRESSTESTS
+	// =====================================================
+	// API SERVER & ETCD
+	apiServerEnabled := controlPlaneTest.Spec.APIServerETCDStress.Enabled
+	frequentStatusUpdates := controlPlaneTest.Spec.APIServerETCDStress.FrequentStatusUpdates
+	aggressiveReconcile := controlPlaneTest.Spec.APIServerETCDStress.AggressiveReconcile
+	aggressiveRequeueDelay := controlPlaneTest.Spec.APIServerETCDStress.ReconcileRequeueDelay
+	recreateResources := controlPlaneTest.Spec.APIServerETCDStress.RecreateResources
+	reconcileRequeueDelay := controlPlaneTest.Spec.APIServerETCDStress.ReconcileRequeueDelay
+	// apiServerQPS := controlPlaneTest.Spec.APIServerETCDStress.QPS
+	// apiServerBurst := controlPlaneTest.Spec.APIServerETCDStress.Burst
+
+	// CONTROLLER MANAGER
+	ctrlmngrEnabled := controlPlaneTest.Spec.ControllerManagerStress.Enabled
+	recreateReplicaSets := controlPlaneTest.Spec.ControllerManagerStress.RecreateReplicaSets
+	replicaRecreateDelay := controlPlaneTest.Spec.ControllerManagerStress.ReplicaRecreateDelay
+	aggressiveGarbageCollection := controlPlaneTest.Spec.ControllerManagerStress.AggressiveGarbageCollection
+	garbageCollectionDelay := controlPlaneTest.Spec.ControllerManagerStress.GarbageCollectionDelay
+
+	// SCHEDULER
+	schedulerEnabled := controlPlaneTest.Spec.SchedulerStress.Enabled
+	// nodeCount := controlPlaneTest.Spec.SchedulerStress.NodeCount
+	nodeSelector := controlPlaneTest.Spec.SchedulerStress.NodeSelector
+	affinityMode := controlPlaneTest.Spec.SchedulerStress.AffinityMode
+	affinityKeyLabelSelector := controlPlaneTest.Spec.SchedulerStress.AffinitySelector.Key
+	affinityValueLabelSelector := controlPlaneTest.Spec.SchedulerStress.AffinitySelector.Value
+	antiAffinityMode := controlPlaneTest.Spec.SchedulerStress.AntiAffinityMode
+	antiAffinityKeyLabelSelector := controlPlaneTest.Spec.SchedulerStress.AntiAffinitySelector.Key
+	antiAffinityValueLabelSelector := controlPlaneTest.Spec.SchedulerStress.AntiAffinitySelector.Value
+	topologySpread := controlPlaneTest.Spec.SchedulerStress.TopologySpread
+
+	if affinityMode != "" &&
+		affinityMode != "soft" &&
+		affinityMode != "hard" {
+
+		return ctrl.Result{},
+			fmt.Errorf("affinityMode must be soft or hard")
+	}
+
+	if antiAffinityMode != "" &&
+		antiAffinityMode != "soft" &&
+		antiAffinityMode != "hard" {
+
+		return ctrl.Result{},
+			fmt.Errorf("antiAffinityMode must be soft or hard")
+	}
+
+	// OPERATEUR (à implémenter ultérieurement)
+	// operatorEnabled := controlPlaneTest.Spec.OperatorStress.Enabled
+	operatorProfile := controlPlaneTest.Spec.OperatorStress.Profile
+	// operatorMaxConcurrent := controlPlaneTest.Spec.OperatorStress.Reconcile.MaxConcurrent
+	// operatorQPS := controlPlaneTest.Spec.OperatorStress.Reconcile.QPS
+	// operatorBurst := controlPlaneTest.Spec.OperatorStress.Reconcile.Burst
+	// operatorBaseDelaySeconds := controlPlaneTest.Spec.OperatorStress.Reconcile.BaseDelaySeconds
+	// operatorMaxDelaySeconds := controlPlaneTest.Spec.OperatorStress.Reconcile.MaxDelaySeconds
+	// operatorWatchPods := controlPlaneTest.Spec.OperatorStress.Informer.WatchPods
+	// operatorWatchDeployments := controlPlaneTest.Spec.OperatorStress.Informer.WatchDeployments
+	// operatorWatchConfigMaps := controlPlaneTest.Spec.OperatorStress.Informer.WatchConfigMaps
+
+	// POD STORM
+	podStormEnabled := controlPlaneTest.Spec.PodLifecycleStorm.Enabled
+	deletePodsRandomly := controlPlaneTest.Spec.PodLifecycleStorm.DeletePodsRandomly
+	deletePodsDelay := controlPlaneTest.Spec.PodLifecycleStorm.DeletePodsDelay
+	crashLoopSimulation := controlPlaneTest.Spec.PodLifecycleStorm.CrashLoopSimulation
 
 	// =====================================
 	// ******** BOUCLE DEPLOYMENTS ********
 	// =====================================
 
 	for i := int32(0); i < deploymentCount; i++ {
+		// # IDENTIFICATION & RECHERCHE DANS CLUSTER
+		fmt.Println("🖥️📝📦 │ Définition nom à ajouter à la liste des Deployments gérés")
 		deploymentName := fmt.Sprintf(
 			"%s-deployment-%d",
 			controlPlaneTest.Name,
 			i,
 		)
-
 		// Ajout du Deployment dans la liste des ressources gérées
 		deploymentNames = append(
 			deploymentNames,
 			deploymentName,
 		)
+		fmt.Println("📦📝✅ │ Nom Deployment :", deploymentName)
 
-		fmt.Println("🖥️🔄📦 │ Gestion Deployment :", deploymentName)
-
-		// **** DEPLOYMENT ****
+		// **** RECHERCHE DEPLOYMENT 'i' ****
 		// Structure Go vide destinée à accueillir le Deployment récupéré depuis Kubernetes
 		existingDeployment := &appsv1.Deployment{}
-
-		fmt.Println("🖥️🔍📦 │ Recherche du Deployment dans Kubernetes ...")
-
+		fmt.Println("🖥️🔍📦 │ Récupération Deployment dans Kubernetes ...")
 		// GET Kubernetes API : récupération du Deployment réel existant
 		err = r.Get(ctx, types.NamespacedName{
 			Name:      deploymentName,
 			Namespace: req.Namespace,
 		}, existingDeployment)
+		fmt.Printf("📦⬇️✅ │ Deployment %d récupéré\n", i)
 
 		// =========================================================
-		// CREATION DU DEPLOYMENT
+		// # CREATION DU DEPLOYMENT
 		// =========================================================
 		// Si Kubernetes répond "NotFound" :
 		// cela signifie que le Deployment n'existe pas encore.
@@ -518,121 +659,157 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		// - définir l'objet attendu
 		// - puis demander sa création à Kubernetes.
 
-		if err != nil && apierrors.IsNotFound(err) {
+		var topologySpreadConstraints []corev1.TopologySpreadConstraint
+		var affinity *corev1.Affinity
+		// Définition des MatchLabel de sélection Deployment
+		selectorLabels := map[string]string{
+			"app":        controlPlaneTest.Name,
+			"deployment": deploymentName,
+		}
 
-			fmt.Println("🖥️🔍🚫 │ Deployment introuvable")
-			fmt.Println("🖥️⬆️📦 │ Création du Deployment ...")
-
-			// =========================================================
-			// AFFINITY / ANTI-AFFINITY
-			// =========================================================
-
-			var affinity *corev1.Affinity
-
-			// =====================================
-			// POD AFFINITY
-			// =====================================
-
-			if controlPlaneTest.Spec.SchedulerStress.Affinity != "" {
-
-				fmt.Println("🖥️🧲📦 │ Activation Pod Affinity")
-
-				podAffinityTerm := corev1.PodAffinityTerm{
-					LabelSelector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							"app": controlPlaneTest.Name,
+		if schedulerEnabled {
+			// ## TOPOLOGY SPREAD
+			if topologySpread {
+				topologySpreadConstraints = []corev1.TopologySpreadConstraint{
+					{
+						MaxSkew:           1,
+						TopologyKey:       "kubernetes.io/hostname",
+						WhenUnsatisfiable: corev1.ScheduleAnyway,
+						LabelSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"app": controlPlaneTest.Name,
+							},
 						},
 					},
-					TopologyKey: "kubernetes.io/hostname",
-				}
-
-				// =====================================
-				// SOFT AFFINITY
-				// =====================================
-
-				if controlPlaneTest.Spec.SchedulerStress.Affinity == "soft" {
-
-					affinity = &corev1.Affinity{
-						PodAffinity: &corev1.PodAffinity{
-							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
-								{
-									Weight:          100,
-									PodAffinityTerm: podAffinityTerm,
-								},
-							},
-						},
-					}
-				}
-
-				// =====================================
-				// HARD AFFINITY
-				// =====================================
-
-				if controlPlaneTest.Spec.SchedulerStress.Affinity == "hard" {
-
-					affinity = &corev1.Affinity{
-						PodAffinity: &corev1.PodAffinity{
-							RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-								podAffinityTerm,
-							},
-						},
-					}
 				}
 			}
 
-			// =====================================
-			// POD ANTI-AFFINITY
-			// =====================================
+			// ## AFFINITY / ANTI-AFFINITY
+			affinity = &corev1.Affinity{}
 
-			if controlPlaneTest.Spec.SchedulerStress.AntiAffinity != "" {
-
-				fmt.Println("🖥️🚫📦 │ Activation Pod AntiAffinity")
-
-				podAntiAffinityTerm := corev1.PodAffinityTerm{
-					LabelSelector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							"app": controlPlaneTest.Name,
+			// ==========================================
+			// ### POD AFFINITY
+			// ==========================================
+			if affinityMode == "soft" &&
+				affinityKeyLabelSelector != "" &&
+				affinityValueLabelSelector != "" {
+				affinity.PodAffinity = &corev1.PodAffinity{
+					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+						{
+							Weight: 100,
+							PodAffinityTerm: corev1.PodAffinityTerm{
+								LabelSelector: &metav1.LabelSelector{
+									MatchLabels: map[string]string{
+										affinityKeyLabelSelector: affinityValueLabelSelector,
+									},
+								},
+								TopologyKey: "kubernetes.io/hostname",
+							},
 						},
 					},
-					TopologyKey: "kubernetes.io/hostname",
 				}
+			}
 
-				// =====================================
-				// SOFT ANTI-AFFINITY
-				// =====================================
-
-				if controlPlaneTest.Spec.SchedulerStress.AntiAffinity == "soft" {
-
-					affinity = &corev1.Affinity{
-						PodAntiAffinity: &corev1.PodAntiAffinity{
-							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
-								{
-									Weight:          100,
-									PodAffinityTerm: podAntiAffinityTerm,
+			if affinityMode == "hard" &&
+				affinityKeyLabelSelector != "" &&
+				affinityValueLabelSelector != "" {
+				affinity.PodAffinity = &corev1.PodAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+						{
+							LabelSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									affinityKeyLabelSelector: affinityValueLabelSelector,
 								},
 							},
+							TopologyKey: "kubernetes.io/hostname",
 						},
-					}
+					},
 				}
+			}
 
-				// =====================================
-				// HARD ANTI-AFFINITY
-				// =====================================
-
-				if controlPlaneTest.Spec.SchedulerStress.AntiAffinity == "hard" {
-
-					affinity = &corev1.Affinity{
-						PodAntiAffinity: &corev1.PodAntiAffinity{
-							RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-								podAntiAffinityTerm,
+			// ==========================================
+			// ### POD ANTI-AFFINITY
+			// ==========================================
+			if antiAffinityMode == "soft" &&
+				antiAffinityKeyLabelSelector != "" &&
+				antiAffinityValueLabelSelector != "" {
+				affinity.PodAntiAffinity = &corev1.PodAntiAffinity{
+					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+						{
+							Weight: 100,
+							PodAffinityTerm: corev1.PodAffinityTerm{
+								LabelSelector: &metav1.LabelSelector{
+									MatchLabels: map[string]string{
+										antiAffinityKeyLabelSelector: antiAffinityValueLabelSelector,
+									},
+								},
+								TopologyKey: "kubernetes.io/hostname",
 							},
 						},
-					}
+					},
+				}
+			}
+
+			if antiAffinityMode == "hard" &&
+				antiAffinityKeyLabelSelector != "" &&
+				antiAffinityValueLabelSelector != "" {
+				affinity.PodAntiAffinity = &corev1.PodAntiAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+						{
+							LabelSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									antiAffinityKeyLabelSelector: antiAffinityValueLabelSelector,
+								},
+							},
+							TopologyKey: "kubernetes.io/hostname",
+						},
+					},
+				}
+			}
+
+			// Si aucun champ n'a été rempli
+			if affinity.PodAffinity == nil &&
+				affinity.PodAntiAffinity == nil &&
+				affinity.NodeAffinity == nil {
+
+				affinity = nil
+			}
+		}
+
+		if err != nil && apierrors.IsNotFound(err) {
+			fmt.Println("🖥️🔍🚫 │ Deployment introuvable")
+			fmt.Println("🖥️⬆️📦 │ Création du Deployment ...")
+
+			// Ajout du label du pod
+			labels := maps.Clone(selectorLabels)
+
+			if customLabelKey != "" &&
+				customLabelValue != "" {
+
+				labels[customLabelKey] = customLabelValue
+			}
+
+			// Définition du conteneur, facilite la gestion du CrashLoopBackoff
+			container := corev1.Container{
+				Name:  containerName,
+				Image: imagePods,
+
+				Resources: corev1.ResourceRequirements{
+					Requests: requests,
+					Limits:   limits,
+				},
+			}
+
+			if crashLoopSimulation {
+				container.Command = []string{
+					"/bin/sh",
+					"-c",
+					"exit 1",
 				}
 			}
 
 			// =====================================================
-			// DEFINITION LOCALE DE L'OBJET DEPLOYMENT
+			// ## DEFINITION LOCALE DE L'OBJET DEPLOYMENT
 			// =====================================================
 			// Ici : l'opérateur construit simplement une structure Go.
 			// Aucune ressource Kubernetes réelle n'existe encore à ce stade.
@@ -644,44 +821,25 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 				},
 				Spec: appsv1.DeploymentSpec{
 					Replicas: &replicasPerDeployment,
+
 					Selector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							"app":        controlPlaneTest.Name,
-							"deployment": deploymentName,
-						},
+						MatchLabels: selectorLabels,
 					},
+
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
-							Labels: map[string]string{
-								"app":        controlPlaneTest.Name,
-								"deployment": deploymentName,
-							},
+							Labels: labels,
 						},
+
 						Spec: corev1.PodSpec{
-							// appliqué un sélecteur de noeud en fonction du label "clé: valeur" associé à nodeSelector
-							NodeSelector: controlPlaneTest.Spec.SchedulerStress.NodeSelector,
-							// Définition du mode de fonctionnement du deployment affinité/anti-affinité
+							// Sélection des nœuds
+							NodeSelector: nodeSelector,
+							// Affinity / Anti-Affinity
 							Affinity: affinity,
-							TopologySpreadConstraints: []corev1.TopologySpreadConstraint{
-								{
-									// écart maximum autorisé
-									MaxSkew: 1,
-									// répartition par noeud (possible ici d'étendre par région, pool, rack, etc...)
-									TopologyKey: "kubernetes.io/hostname",
-									// préfère équilibrer mais autorise quand même le scheduling ('corev1.DoNotSchedule' pour refuser complètement)
-									WhenUnsatisfiable: corev1.ScheduleAnyway,
-									LabelSelector: &metav1.LabelSelector{
-										MatchLabels: map[string]string{
-											"app": controlPlaneTest.Name,
-										},
-									},
-								},
-							},
+							// Topology Spread
+							TopologySpreadConstraints: topologySpreadConstraints,
 							Containers: []corev1.Container{
-								{
-									Name:  "nginx",
-									Image: controlPlaneTest.Spec.Image,
-								},
+								container,
 							},
 						},
 					},
@@ -689,7 +847,7 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			}
 
 			// =====================================================
-			// RELATION PARENT / ENFANT
+			// ## RELATION PARENT / ENFANT
 			// =====================================================
 			// La CR devient propriétaire du Deployment.
 			//
@@ -707,7 +865,7 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			}
 
 			// =====================================================
-			// CREATION REELLE DANS KUBERNETES
+			// ## CREATION REELLE DANS KUBERNETES
 			// =====================================================
 			// Cette fois : l'opérateur effectue réellement une requête POST vers l'API Server Kubernetes.
 			//
@@ -738,7 +896,6 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 
 		if err != nil {
-
 			fmt.Println("🖥️🔍❌ │ Erreur lors de la récupération du Deployment")
 			typeReconciliation = "err_api_deployment"
 			erreursReconciliationTotal.Inc()
@@ -746,7 +903,7 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 
 		// =========================================================
-		// VERIFICATION DE LA STRUCTURE DU DEPLOYMENT
+		// # VERIFICATION DE LA STRUCTURE DU DEPLOYMENT
 		// =========================================================
 		// Protection contre l'accès à un tableau vide.
 		// Sans cela : panic possible sur containers[0]
@@ -763,58 +920,227 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 
 		// =========================================================
-		// DETECTION DE DRIFT
+		// # DETECTION DE DRIFT
 		// =========================================================
 		// Comparaison : Etat désiré (CR) VS Etat réel (Deployment)
 		// Toute différence déclenche une correction automatique.
 
-		currentImage := containers[0].Image
-		desiredImage := controlPlaneTest.Spec.Image
-		currentReplicas := *existingDeployment.Spec.Replicas
-		desiredReplicas := replicasPerDeployment
+		// ## ETAT ACTUEL
+		driftDetected := false
 
-		if currentImage != desiredImage || currentReplicas != desiredReplicas {
+		// =========================================================
+		// ### CONTAINER NAME
+		// =========================================================
+
+		if existingDeployment.Spec.Template.Spec.Containers[0].Name != containerName {
+			fmt.Println(
+				"🤓🔄📦 │ ContainerName :",
+				existingDeployment.Spec.Template.Spec.Containers[0].Name,
+				"→",
+				containerName,
+			)
+			existingDeployment.Spec.Template.Spec.Containers[0].Name =
+				containerName
+
+			driftDetected = true
+		}
+
+		// =========================================================
+		// ### IMAGE
+		// =========================================================
+
+		if existingDeployment.Spec.Template.Spec.Containers[0].Image != imagePods {
+			fmt.Println(
+				"🤓🔄📦 │ Image :",
+				existingDeployment.Spec.Template.Spec.Containers[0].Image,
+				"→",
+				imagePods,
+			)
+
+			existingDeployment.Spec.Template.Spec.Containers[0].Image =
+				imagePods
+
+			driftDetected = true
+		}
+
+		// =========================================================
+		// ### CRASH LOOP BACKOFF
+		// =========================================================
+		var desiredCommand []string
+
+		if crashLoopSimulation {
+			desiredCommand = []string{
+				"/bin/sh",
+				"-c",
+				"exit 1",
+			}
+		}
+
+		if !reflect.DeepEqual(
+			existingDeployment.Spec.Template.Spec.Containers[0].Command,
+			desiredCommand,
+		) {
+
+			fmt.Println("🤓🔄📦 │ Command modifiée")
+
+			existingDeployment.Spec.Template.Spec.Containers[0].Command =
+				desiredCommand
+
+			driftDetected = true
+		}
+
+		// =========================================================
+		// ### REPLICAS
+		// =========================================================
+		if *existingDeployment.Spec.Replicas != replicasPerDeployment {
+			fmt.Println(
+				"🤓🔄📦 │ Replicas :",
+				*existingDeployment.Spec.Replicas,
+				"→",
+				replicasPerDeployment,
+			)
+
+			existingDeployment.Spec.Replicas =
+				&replicasPerDeployment
+
+			driftDetected = true
+		}
+
+		// =========================================================
+		// ### RESOURCES (CPU / MEMORY)
+		// =========================================================
+		desiredResources := corev1.ResourceRequirements{
+			Requests: requests,
+			Limits:   limits,
+		}
+
+		if !reflect.DeepEqual(
+			existingDeployment.Spec.Template.Spec.Containers[0].Resources,
+			desiredResources,
+		) {
+
+			fmt.Println(
+				"🤓🔄📦 │ Resources modifiées",
+			)
+
+			existingDeployment.Spec.Template.Spec.Containers[0].Resources =
+				desiredResources
+
+			driftDetected = true
+		}
+
+		// =========================================================
+		// ### CUSTOM LABEL
+		// =========================================================
+		desiredLabels := maps.Clone(selectorLabels)
+
+		if customLabelKey != "" &&
+			customLabelValue != "" {
+
+			desiredLabels[customLabelKey] =
+				customLabelValue
+		}
+
+		if !reflect.DeepEqual(
+			existingDeployment.Spec.Template.Labels,
+			desiredLabels,
+		) {
+
+			fmt.Println(
+				"🤓🔄📦 │ Labels modifiés",
+			)
+
+			existingDeployment.Spec.Template.Labels =
+				desiredLabels
+
+			driftDetected = true
+		}
+
+		// =========================================================
+		// ### NODE SELECTOR
+		// =========================================================
+		if !reflect.DeepEqual(
+			existingDeployment.Spec.Template.Spec.NodeSelector,
+			nodeSelector,
+		) {
+
+			fmt.Println(
+				"🤓🔄📦 │ NodeSelector modifié",
+			)
+
+			existingDeployment.Spec.Template.Spec.NodeSelector =
+				nodeSelector
+
+			driftDetected = true
+		}
+
+		// =========================================================
+		// ### AFFINITY / ANTI-AFFINITY
+		// =========================================================
+		if !reflect.DeepEqual(
+			existingDeployment.Spec.Template.Spec.Affinity,
+			affinity,
+		) {
+
+			fmt.Println(
+				"🤓🔄📦 │ Affinity modifiée",
+			)
+
+			existingDeployment.Spec.Template.Spec.Affinity =
+				affinity
+
+			driftDetected = true
+		}
+
+		// =========================================================
+		// ### TOPOLOGY SPREAD
+		// =========================================================
+		if !reflect.DeepEqual(
+			existingDeployment.Spec.Template.Spec.TopologySpreadConstraints,
+			topologySpreadConstraints,
+		) {
+
+			fmt.Println(
+				"🤓🔄📦 │ TopologySpread modifié",
+			)
+
+			existingDeployment.Spec.Template.Spec.TopologySpreadConstraints =
+				topologySpreadConstraints
+
+			driftDetected = true
+		}
+
+		// ### SI UNE MODIFICATION PARMI LES PRECEDENTES
+		if driftDetected {
 			fmt.Println("🖥️🔄📦 │ Drift détecté sur le Deployment")
+			err = r.Update(ctx, existingDeployment)
 
-			// =====================================================
-			// MODIFICATION LOCALE DE LA STRUCTURE GO
-			// =====================================================
-
-			existingDeployment.Spec.Template.Spec.Containers[0].Image = desiredImage
-			existingDeployment.Spec.Replicas = &desiredReplicas
-
-			if currentImage == desiredImage && currentReplicas != desiredReplicas {
-				fmt.Println("🤓🔄📦 │ Replicas :", currentReplicas, "→", desiredReplicas)
-			}
-			if currentReplicas == desiredReplicas && currentImage != desiredImage {
-				fmt.Println("🤓🔄📦 │ Image :", currentImage, "→", desiredImage)
-			}
-
-			// =====================================================
-			// UPDATE REEL DANS KUBERNETES
-			// =====================================================
-			// L'opérateur effectue une requête UPDATE vers l'API Server Kubernetes.
-			//
-			// Kubernetes appliquera ensuite :
-			// - rolling update
-			// - nouveau ReplicaSet
-			// - remplacement Pods
-			// etc...
-
-			fmt.Println("🖥️🔄📦 │ UPDATE Deployment dans Kubernetes ...")
-
-			err := r.Update(ctx, existingDeployment)
 			if err != nil {
-
 				fmt.Println("🖥️🔄❌ │ Impossible de mettre à jour le Deployment")
+
 				typeReconciliation = "err_maj_deployment"
 				erreursReconciliationTotal.Inc()
+
 				return ctrl.Result{}, err
 			}
 
 			fmt.Println("🖥️🔄✅ │ Deployment mis à jour avec succès")
 			typeReconciliation = "maj_deployment"
-			return ctrl.Result{Requeue: true}, nil
+
+			return ctrl.Result{
+				Requeue: true,
+			}, nil
+		}
+
+		// ### NON CORRIGEABLE FACILEMENT (IMMUTABLE)
+		if !reflect.DeepEqual(
+			existingDeployment.Spec.Selector.MatchLabels,
+			selectorLabels,
+		) {
+
+			fmt.Println(
+				"⚠️ Selector modifié manuellement - champ immutable",
+			)
 		}
 
 		fmt.Println("🖥️🎯✅ │ ", deploymentName, " convergé")
@@ -871,10 +1197,7 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			deployment.Name,
 		)
 
-		err = r.Delete(
-			ctx,
-			&deployment,
-		)
+		err = r.Delete(ctx, &deployment)
 
 		if err != nil {
 			fmt.Println("🖥️🗑️❌ │ Impossible de supprimer le Deployment")
@@ -885,104 +1208,192 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	// =========================================================
-	// GESTION DES CONFIGMAPS
+	// ********* GESTION DES CONFIGMAPS ***********
 	// =========================================================
 	// L'objectif est de maintenir une ConfigMap associée à la CR.
 	// Kubernetes ne la crée PAS automatiquement.
 	// C'est l'opérateur qui pilote entièrement cette ressource.
 
-	configMapCount := controlPlaneTest.Spec.EtcdStress.ConfigMapCount
+	// Si le manifest en attend au moins une CM
+	if configMapCount > 0 {
+		// Si pas de CM size défini on la fixe à 1 Kb
+		if configMapSizeKB <= 0 {
+			configMapSizeKB = 1
+		}
 
-	if configMapCount <= 0 {
-		configMapCount = 1
-	}
+		for i := int32(0); i < configMapCount; i++ {
+			// ## IDENTIFICATION & RECHERCHE DANS CLUSTER
+			fmt.Println("🖥️📝📦 │ Définition nom  à ajouter à la liste des ConfigMaps gérées")
+			configMapName := fmt.Sprintf(
+				"%s-configmap-%d",
+				controlPlaneTest.Name,
+				i,
+			)
 
-	for i := int32(0); i < configMapCount; i++ {
+			// Ajout du ConfigMap dans la liste des ressources gérées
+			configMapNames = append(
+				configMapNames,
+				configMapName,
+			)
+			fmt.Println("📦📝✅ │ Nom ConfigMap ajoutée :", configMapName)
 
-		configMapName := fmt.Sprintf(
-			"%s-configmap-%d",
-			controlPlaneTest.Name,
-			i,
-		)
+			existingConfigMap := &corev1.ConfigMap{}
 
-		configMapNames = append(
-			configMapNames,
-			configMapName,
-		)
-
-		existingConfigMap := &corev1.ConfigMap{}
-
-		err := r.Get(
-			ctx,
-			types.NamespacedName{
+			fmt.Println("🖥️🔍📦 │ Récupération ConfigMap dans Kubernetes ...")
+			err = r.Get(ctx, types.NamespacedName{
 				Name:      configMapName,
 				Namespace: req.Namespace,
-			},
-			existingConfigMap,
-		)
+			}, existingConfigMap)
 
-		if err != nil && apierrors.IsNotFound(err) {
+			// ## CREATION SI INEXISTANTE
+			if err != nil && apierrors.IsNotFound(err) {
+				fmt.Println("🖥️⬆️📦 │ Création ConfigMap ...")
+				configMapData := map[string]string{}
 
-			fmt.Println("🖥️⬆️📦 │ Création ConfigMap ...")
+				configMapData["payload"] = strings.Repeat(
+					"A",
+					int(configMapSizeKB*1024),
+				)
 
-			configMapData := map[string]string{}
-			configMapSizeKB := controlPlaneTest.Spec.EtcdStress.ConfigMapSizeKB
+				// ### DEFINITION CONFIGMAP LOCALE
+				configMap := &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      configMapName,
+						Namespace: req.Namespace,
+						Labels: map[string]string{
+							"app": controlPlaneTest.Name,
+						},
+					},
+					Data: configMapData,
+				}
 
-			if configMapSizeKB <= 0 {
-				configMapSizeKB = 1
+				err = ctrl.SetControllerReference(
+					controlPlaneTest,
+					configMap,
+					r.Scheme,
+				)
+
+				if err != nil {
+					fmt.Println("🖥️🔗❌ │ Impossible d'ajouter l'OwnerReference à la ConfigMap")
+					erreursReconciliationTotal.Inc()
+					return ctrl.Result{}, err
+				}
+
+				// ### CREATION DANS KUBERNETES
+				err = r.Create(ctx, configMap)
+
+				if err != nil {
+					fmt.Println("🖥️⬆️❌ │ Impossible de créer la ConfigMap")
+					erreursReconciliationTotal.Inc()
+					return ctrl.Result{}, err
+				}
+				fmt.Println("🖥️⬆️✅ │ ConfigMap créée :", configMapName)
+				typeReconciliation = "creation_configmap"
+				continue
 			}
 
-			configMapData["payload"] = strings.Repeat(
+			if err != nil {
+				fmt.Println("🖥️🔍❌ │ Impossible de récupérer la ConfigMap")
+				erreursReconciliationTotal.Inc()
+				return ctrl.Result{}, err
+			}
+
+			fmt.Printf("📦⬇️✅ │ ConfigMap %d récupérée\n", i)
+
+			// =====================================================
+			// DETECTION DE DRIFT
+			// =====================================================
+
+			driftDetected := false
+
+			// ==========================================
+			// LABELS
+			// ==========================================
+			desiredLabels := map[string]string{
+				"app": controlPlaneTest.Name,
+			}
+
+			if !reflect.DeepEqual(
+				existingConfigMap.Labels,
+				desiredLabels,
+			) {
+
+				fmt.Println("🤓🔄📦 │ Labels modifiés")
+
+				existingConfigMap.Labels = desiredLabels
+
+				driftDetected = true
+			}
+
+			// ==========================================
+			// PAYLOAD
+			// ==========================================
+
+			if existingConfigMap.Data == nil {
+				existingConfigMap.Data = map[string]string{}
+			}
+
+			desiredPayload := strings.Repeat(
 				"A",
 				int(configMapSizeKB*1024),
 			)
 
-			configMap := &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      configMapName,
-					Namespace: req.Namespace,
-				},
-				Data: configMapData,
+			currentPayload := existingConfigMap.Data["payload"]
+
+			if currentPayload != desiredPayload {
+
+				fmt.Println(
+					"🤓🔄📦 │ Payload modifié",
+				)
+
+				existingConfigMap.Data["payload"] = desiredPayload
+
+				driftDetected = true
 			}
 
-			err = ctrl.SetControllerReference(
-				controlPlaneTest,
-				configMap,
-				r.Scheme,
-			)
+			// ==========================================
+			// UPDATE SI DRIFT
+			// ==========================================
 
-			if err != nil {
+			if driftDetected {
 
-				fmt.Println("🖥️🔗❌ │ Impossible d'ajouter l'OwnerReference à la ConfigMap")
-				erreursReconciliationTotal.Inc()
-				return ctrl.Result{}, err
+				fmt.Println(
+					"🖥️🔄📦 │ Drift détecté sur ConfigMap :",
+					configMapName,
+				)
+
+				err = r.Update(
+					ctx,
+					existingConfigMap,
+				)
+
+				if err != nil {
+
+					fmt.Println(
+						"🖥️🔄❌ │ Impossible de mettre à jour ConfigMap",
+					)
+
+					typeReconciliation = "err_update_configmap"
+					erreursReconciliationTotal.Inc()
+
+					return ctrl.Result{}, err
+				}
+
+				fmt.Println("🖥️🔄✅ │ ConfigMap mise à jour")
+
+				typeReconciliation = "update_configmap"
+
+				return ctrl.Result{
+					Requeue: true,
+				}, nil
 			}
 
-			err = r.Create(ctx, configMap)
-
-			if err != nil {
-
-				fmt.Println("🖥️⬆️❌ │ Impossible de créer la ConfigMap")
-				erreursReconciliationTotal.Inc()
-				return ctrl.Result{}, err
-			}
-
-			fmt.Println("🖥️⬆️✅ │ ConfigMap créée :", configMapName)
-			continue
+			fmt.Println("🖥️🎯✅ │ ", configMapName, " convergée")
 		}
-
-		if err != nil {
-
-			fmt.Println("🖥️🔍❌ │ Impossible de récupérer la ConfigMap")
-			erreursReconciliationTotal.Inc()
-			return ctrl.Result{}, err
-		}
-
-		fmt.Println("🖥️🎯✅ │ ", configMapName, " convergée")
 	}
 
 	// =========================================================
-	// CLEANUP CONFIGMAPS EXCEDENTAIRES
+	// ## CLEANUP CONFIGMAPS EXCEDENTAIRES
 	// =========================================================
 	// Suppression des ConfigMaps qui existent encore dans Kubernetes
 	// mais qui ne sont plus présentes dans l'état désiré de la CR.
@@ -1001,7 +1412,6 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	)
 
 	if err != nil {
-
 		fmt.Println("🖥️🔍❌ │ Impossible de lister les ConfigMaps")
 		typeReconciliation = "err_list_configmaps"
 		erreursReconciliationTotal.Inc()
@@ -1016,27 +1426,21 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		expected := false
 
 		for _, expectedConfigMapName := range configMapNames {
-
 			if configMap.Name == expectedConfigMapName {
 				expected = true
 				break
 			}
 		}
 
-		// ConfigMap encore attendue
+		// ConfigMap encore attendue, on sort de la boucle 'for'
 		if expected {
 			continue
 		}
 
-		// =====================================
-		// CONFIGMAP EXCEDENTAIRE
-		// =====================================
+		// Sinon CM excédentaire
+		fmt.Println("🖥️🗑️📦 │ Suppression ConfigMap excédentaire :", configMap.Name)
 
-		fmt.Println(
-			"🖥️🗑️📦 │ Suppression ConfigMap excédentaire :",
-			configMap.Name,
-		)
-
+		// On supprime
 		err = r.Delete(
 			ctx,
 			&configMap,
@@ -1051,21 +1455,278 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	// =========================================================
+	// ********** GESTION DES SECRETS ***********
+	// =========================================================
+
+	if secretCount > 0 {
+		if secretSizeKB <= 0 {
+			secretSizeKB = 1
+		}
+
+		for i := int32(0); i < secretCount; i++ {
+			// =====================================================
+			// IDENTIFICATION & RECHERCHE DANS CLUSTER
+			// =====================================================
+			fmt.Println("🖥️📝🔐 │ Définition nom à ajouter à la liste des Secrets gérés")
+
+			secretName := fmt.Sprintf(
+				"%s-secret-%d",
+				controlPlaneTest.Name,
+				i,
+			)
+
+			secretNames = append(
+				secretNames,
+				secretName,
+			)
+
+			fmt.Println("🔐📝✅ │ Nom Secret ajouté :", secretName)
+
+			existingSecret := &corev1.Secret{}
+
+			fmt.Println("🖥️🔍🔐 │ Récupération Secret dans Kubernetes ...")
+
+			err = r.Get(
+				ctx,
+				types.NamespacedName{
+					Name:      secretName,
+					Namespace: req.Namespace,
+				},
+				existingSecret,
+			)
+
+			// =====================================================
+			// CREATION SI INEXISTANT
+			// =====================================================
+			if err != nil && apierrors.IsNotFound(err) {
+
+				fmt.Println("🖥️⬆️🔐 │ Création Secret ...")
+
+				secret := &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      secretName,
+						Namespace: req.Namespace,
+						Labels: map[string]string{
+							"app": controlPlaneTest.Name,
+						},
+					},
+					Type: corev1.SecretTypeOpaque,
+					Data: map[string][]byte{
+						"payload": []byte(
+							strings.Repeat(
+								"A",
+								int(secretSizeKB*1024),
+							),
+						),
+					},
+				}
+
+				err = ctrl.SetControllerReference(
+					controlPlaneTest,
+					secret,
+					r.Scheme,
+				)
+
+				if err != nil {
+					fmt.Println("🖥️🔗❌ │ Impossible d'ajouter l'OwnerReference au Secret")
+					erreursReconciliationTotal.Inc()
+					return ctrl.Result{}, err
+				}
+
+				err = r.Create(ctx, secret)
+
+				if err != nil {
+					fmt.Println("🖥️⬆️❌ │ Impossible de créer le Secret")
+					erreursReconciliationTotal.Inc()
+					return ctrl.Result{}, err
+				}
+
+				fmt.Println("🖥️⬆️✅ │ Secret créé :", secretName)
+				continue
+			}
+
+			if err != nil {
+				fmt.Println("🖥️🔍❌ │ Impossible de récupérer le Secret")
+				erreursReconciliationTotal.Inc()
+				return ctrl.Result{}, err
+			}
+
+			fmt.Printf("🔐⬇️✅ │ Secret %d récupéré\n", i)
+
+			// =====================================================
+			// DETECTION DE DRIFT
+			// =====================================================
+
+			driftDetected := false
+
+			// ==========================================
+			// LABELS
+			// ==========================================
+			desiredLabels := map[string]string{
+				"app": controlPlaneTest.Name,
+			}
+
+			if !reflect.DeepEqual(
+				existingSecret.Labels,
+				desiredLabels,
+			) {
+
+				fmt.Println("🤓🔄🔐 │ Labels modifiés")
+				existingSecret.Labels = desiredLabels
+				driftDetected = true
+			}
+
+			// ==========================================
+			// SECRET TYPE
+			// ==========================================
+			if existingSecret.Type != corev1.SecretTypeOpaque {
+				fmt.Println(
+					"🤓🔄🔐 │ Type :",
+					existingSecret.Type,
+					"→",
+					corev1.SecretTypeOpaque,
+				)
+				existingSecret.Type = corev1.SecretTypeOpaque
+				driftDetected = true
+			}
+
+			// ==========================================
+			// PAYLOAD
+			// ==========================================
+			if existingSecret.Data == nil {
+				existingSecret.Data = map[string][]byte{}
+			}
+
+			desiredPayload := []byte(
+				strings.Repeat(
+					"A",
+					int(secretSizeKB*1024),
+				),
+			)
+
+			if !bytes.Equal(existingSecret.Data["payload"], desiredPayload) {
+				fmt.Println(
+					"🤓🔄🔐 │ Payload modifié",
+				)
+				existingSecret.Data["payload"] = desiredPayload
+				driftDetected = true
+			}
+
+			// ==========================================
+			// UPDATE SI DRIFT
+			// ==========================================
+			if driftDetected {
+				fmt.Println("🖥️🔄🔐 │ Drift détecté sur Secret :", secretName)
+
+				err = r.Update(ctx, existingSecret)
+
+				if err != nil {
+					fmt.Println(
+						"🖥️🔄❌ │ Impossible de mettre à jour Secret",
+					)
+
+					typeReconciliation = "err_update_secret"
+					erreursReconciliationTotal.Inc()
+
+					return ctrl.Result{}, err
+				}
+
+				fmt.Println("🖥️🔄✅ │ Secret mis à jour")
+
+				typeReconciliation = "update_secret"
+				return ctrl.Result{Requeue: true}, nil
+			}
+
+			fmt.Println("🖥️🎯✅ │ ", secretName, " convergé")
+		}
+	}
+
+	// =========================================================
+	// ## CLEANUP SECRETS EXCEDENTAIRES
+	// =========================================================
+	// Suppression des Secrets qui existent encore dans Kubernetes
+	// mais qui ne sont plus présents dans l'état désiré de la CR.
+
+	fmt.Println("🖥️🧹🔐 │ Vérification des Secrets excédentaires ...")
+
+	secretList := &corev1.SecretList{}
+
+	err = r.List(
+		ctx,
+		secretList,
+		client.InNamespace(req.Namespace),
+		client.MatchingLabels{
+			"app": controlPlaneTest.Name,
+		},
+	)
+
+	if err != nil {
+		fmt.Println("🖥️🔍❌ │ Impossible de lister les Secrets")
+		typeReconciliation = "err_list_secrets"
+		erreursReconciliationTotal.Inc()
+		return ctrl.Result{}, err
+	}
+
+	// Parcours des Secrets existants dans Kubernetes
+	for _, secret := range secretList.Items {
+
+		// Vérifie si le Secret fait encore partie
+		// des ressources attendues par la CR
+		expected := false
+
+		for _, expectedSecretName := range secretNames {
+			if secret.Name == expectedSecretName {
+				expected = true
+				break
+			}
+		}
+
+		// Secret encore attendu, on sort de la boucle 'for'
+		if expected {
+			continue
+		}
+
+		// Sinon Secret excédentaire
+
+		fmt.Println(
+			"🖥️🗑️🔐 │ Suppression Secret excédentaire :",
+			secret.Name,
+		)
+
+		// On supprime
+		err = r.Delete(
+			ctx,
+			&secret,
+		)
+
+		if err != nil {
+			fmt.Println("🖥️🗑️❌ │ Impossible de supprimer le Secret")
+			typeReconciliation = "err_auto-delete_secret"
+			erreursReconciliationTotal.Inc()
+			return ctrl.Result{}, err
+		}
+	}
+
+	// =========================================================
 	// GESTION DU SERVICE
 	// =========================================================
-	// L'objectif est de maintenir un Service associé au Deployment.
-	// Kubernetes ne crée PAS automatiquement de Service.
-	// C'est l'opérateur qui doit gérer cette ressource.
-
-	existingService := &corev1.Service{}
 
 	fmt.Println("🖥️🔍📦 │ Recherche du Service dans Kubernetes ...")
 
-	err = r.Get(ctx, types.NamespacedName{
-		Name:      serviceName,
-		Namespace: req.Namespace,
-	}, existingService)
+	existingService := &corev1.Service{}
 
+	err = r.Get(
+		ctx,
+		types.NamespacedName{
+			Name:      serviceName,
+			Namespace: req.Namespace,
+		},
+		existingService,
+	)
+
+	// =====================================================
+	// CREATION SI INEXISTANT
+	// =====================================================
 	if err != nil && apierrors.IsNotFound(err) {
 
 		fmt.Println("🖥️🔍🚫 │ Service introuvable")
@@ -1075,6 +1736,9 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      serviceName,
 				Namespace: req.Namespace,
+				Labels: map[string]string{
+					"app": controlPlaneTest.Name,
+				},
 			},
 			Spec: corev1.ServiceSpec{
 				Selector: map[string]string{
@@ -1082,8 +1746,10 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 				},
 				Ports: []corev1.ServicePort{
 					{
-						Port:       80,
-						TargetPort: intstr.FromInt(80),
+						Port: servicePort,
+						TargetPort: intstr.FromInt(
+							int(targetPort),
+						),
 					},
 				},
 			},
@@ -1096,36 +1762,195 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		)
 
 		if err != nil {
-			fmt.Println("🖥️🔄❌ │ Impossible d'ajouter l'OwnerReference au Service")
-			typeReconciliation = "err_owner-ref_svc"
+			fmt.Println("🖥️🔗❌ │ Impossible d'ajouter l'OwnerReference au Service")
 			erreursReconciliationTotal.Inc()
 			return ctrl.Result{}, err
 		}
 
-		fmt.Println("🖥️⬆️📦 │ POST Service vers l'API Kubernetes ...")
-
-		err = r.Create(ctx, service)
+		err = r.Create(
+			ctx,
+			service,
+		)
 
 		if err != nil {
 			fmt.Println("🖥️⬆️❌ │ Impossible de créer le Service")
-			typeReconciliation = "err_creation_svc"
+			typeReconciliation = "err_creation_service"
 			erreursReconciliationTotal.Inc()
 			return ctrl.Result{}, err
 		}
 
-		fmt.Println("🖥️⬆️✅ │ Service créé avec succès")
-		typeReconciliation = "creation_svc"
-		return ctrl.Result{Requeue: true}, nil
+		fmt.Println("🖥️⬆️✅ │ Service créé :", serviceName)
+		typeReconciliation = "creation_service"
+		return ctrl.Result{
+			Requeue: true,
+		}, nil
 	}
 
 	if err != nil {
-		fmt.Println("🖥️🔍❌ │ Erreur lors de la récupération du Service")
-		typeReconciliation = "err_api_svc"
+		fmt.Println("🖥️🔍❌ │ Impossible de récupérer le Service")
 		erreursReconciliationTotal.Inc()
 		return ctrl.Result{}, err
 	}
 
-	fmt.Println("🖥️🎯✅ │ Service convergé")
+	fmt.Println("📦⬇️✅ │ Service récupéré")
+
+	// =====================================================
+	// DETECTION DE DRIFT
+	// =====================================================
+
+	driftDetected := false
+
+	// ==========================================
+	// LABELS
+	// ==========================================
+	desiredLabels := map[string]string{
+		"app": controlPlaneTest.Name,
+	}
+
+	if !reflect.DeepEqual(
+		existingService.Labels,
+		desiredLabels,
+	) {
+		fmt.Println("🤓🔄📦 │ Labels modifiés")
+		existingService.Labels = desiredLabels
+
+		driftDetected = true
+	}
+
+	// ==========================================
+	// SELECTOR
+	// ==========================================
+	desiredSelector := map[string]string{
+		"app": controlPlaneTest.Name,
+	}
+
+	if !reflect.DeepEqual(
+		existingService.Spec.Selector,
+		desiredSelector,
+	) {
+		fmt.Println("🤓🔄📦 │ Selector modifié")
+		existingService.Spec.Selector = desiredSelector
+
+		driftDetected = true
+	}
+
+	// ==========================================
+	// PORTS
+	// ==========================================
+
+	if len(existingService.Spec.Ports) == 0 {
+		fmt.Println("🤓🔄📦 │ Aucun port défini")
+
+		existingService.Spec.Ports = []corev1.ServicePort{
+			{
+				Port: servicePort,
+				TargetPort: intstr.FromInt(
+					int(targetPort),
+				),
+			},
+		}
+
+		driftDetected = true
+
+	} else {
+		currentPort := existingService.Spec.Ports[0].Port
+		currentTargetPort := existingService.Spec.Ports[0].TargetPort
+
+		desiredTargetPort := intstr.FromInt(
+			int(targetPort),
+		)
+
+		// Si ports actuels différents des specs CR
+		if currentPort != servicePort || currentTargetPort != desiredTargetPort {
+
+			fmt.Println(
+				"🤓🔄📦 │ Ports :",
+				currentPort,
+				"→",
+				servicePort,
+				"| TargetPort :",
+				currentTargetPort.String(),
+				"→",
+				desiredTargetPort.String(),
+			)
+
+			existingService.Spec.Ports[0].Port = servicePort
+			existingService.Spec.Ports[0].TargetPort = desiredTargetPort
+
+			driftDetected = true
+		}
+	}
+
+	// ==========================================
+	// UPDATE SI DRIFT
+	// ==========================================
+	if driftDetected {
+		fmt.Println("🖥️🔄📦 │ Drift détecté sur Service :", serviceName)
+
+		err = r.Update(
+			ctx,
+			existingService,
+		)
+
+		if err != nil {
+			fmt.Println("🖥️🔄❌ │ Impossible de mettre à jour Service")
+			typeReconciliation = "err_update_service"
+			erreursReconciliationTotal.Inc()
+			return ctrl.Result{}, err
+		}
+
+		fmt.Println("🖥️🔄✅ │ Service mis à jour")
+		typeReconciliation = "update_service"
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	fmt.Println("🖥️🎯✅ │ ", serviceName, " convergé")
+
+	// =========================================================
+	// CLEANUP SERVICE EXCEDENTAIRE
+	// =========================================================
+
+	serviceList := &corev1.ServiceList{}
+
+	err = r.List(
+		ctx,
+		serviceList,
+		client.InNamespace(req.Namespace),
+		client.MatchingLabels{
+			"app": controlPlaneTest.Name,
+		},
+	)
+
+	if err != nil {
+		fmt.Println("🖥️🔍❌ │ Impossible de lister les Services")
+		typeReconciliation = "err_list_services"
+		erreursReconciliationTotal.Inc()
+		return ctrl.Result{}, err
+	}
+
+	for _, service := range serviceList.Items {
+
+		if service.Name == serviceName {
+			continue
+		}
+
+		fmt.Println(
+			"🖥️🗑️📦 │ Suppression Service excédentaire :",
+			service.Name,
+		)
+
+		err = r.Delete(
+			ctx,
+			&service,
+		)
+
+		if err != nil {
+			fmt.Println("🖥️🗑️❌ │ Impossible de supprimer le Service")
+			typeReconciliation = "err_auto-delete_service"
+			erreursReconciliationTotal.Inc()
+			return ctrl.Result{}, err
+		}
+	}
 
 	// $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 	// $$$$$$$$$$$$$$$$ STATUS $$$$$$$$$$$$$$$
@@ -1204,58 +2029,65 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// CONFIGURATION SNAPSHOT METRICS
 	// ============================================================
 
-	topologySpread := "disabled"
-
-	if controlPlaneTest.Spec.SchedulerStress.TopologySpread {
-		topologySpread = "enabled"
+	topologySpreadValue := "disabled"
+	if topologySpread {
+		topologySpreadValue = "enabled"
 	}
 
-	aggressiveReconcile := "disabled"
-
-	if controlPlaneTest.Spec.APIServerStress.AggressiveReconcile {
-		aggressiveReconcile = "enabled"
+	affinityModeValue := "disabled"
+	if affinityMode != "" {
+		affinityModeValue = affinityMode
 	}
 
-	frequentStatusUpdates := "disabled"
-
-	if controlPlaneTest.Spec.APIServerStress.FrequentStatusUpdates {
-		frequentStatusUpdates = "enabled"
+	antiAffinityModeValue := "disabled"
+	if antiAffinityMode != "" {
+		antiAffinityModeValue = antiAffinityMode
 	}
 
-	recreateResources := "disabled"
-
-	if controlPlaneTest.Spec.APIServerStress.RecreateResources {
-		recreateResources = "enabled"
+	aggressiveReconcileValue := "disabled"
+	if aggressiveReconcile {
+		aggressiveReconcileValue = "enabled"
 	}
 
-	podStormEnabled := "disabled"
-
-	if controlPlaneTest.Spec.PodLifecycleStorm.Enabled {
-		podStormEnabled = "enabled"
+	frequentStatusUpdatesValue := "disabled"
+	if frequentStatusUpdates {
+		frequentStatusUpdatesValue = "enabled"
 	}
 
-	deletePodsRandomly := "disabled"
+	recreateResourcesValue := "disabled"
+	if recreateResources {
+		recreateResourcesValue = "enabled"
+	}
 
-	if controlPlaneTest.Spec.PodLifecycleStorm.DeletePodsRandomly {
-		deletePodsRandomly = "enabled"
+	podStormEnabledValue := "disabled"
+	if podStormEnabled {
+		podStormEnabledValue = "enabled"
+	}
+
+	deletePodsRandomlyValue := "disabled"
+	if deletePodsRandomly {
+		deletePodsRandomlyValue = "enabled"
+	}
+
+	crashLoopSimulationValue := "disabled"
+	if crashLoopSimulation {
+		crashLoopSimulationValue = "enabled"
 	}
 
 	configurationScenarioInfo.WithLabelValues(
 		controlPlaneTest.Name,
 		controlPlaneTest.Namespace,
-		controlPlaneTest.Spec.OperatorStress.Profile,
-		fmt.Sprintf(
-			"%t",
-			controlPlaneTest.Spec.SchedulerStress.Enabled,
-		),
-		topologySpread,
-		controlPlaneTest.Spec.SchedulerStress.Affinity,
-		controlPlaneTest.Spec.SchedulerStress.AntiAffinity,
-		aggressiveReconcile,
-		frequentStatusUpdates,
-		recreateResources,
-		podStormEnabled,
-		deletePodsRandomly,
+		operatorProfile,
+		fmt.Sprintf("%t", schedulerEnabled),
+		topologySpreadValue,
+		affinityModeValue,
+		antiAffinityModeValue,
+		aggressiveReconcileValue,
+		frequentStatusUpdatesValue,
+		recreateResourcesValue,
+		podStormEnabledValue,
+		deletePodsRandomlyValue,
+		crashLoopSimulationValue,
 	).Set(1)
 
 	// ============================================
@@ -1323,6 +2155,10 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 				controlPlaneTest.Status.ConfigMapNames,
 				configMapNames,
 			) ||
+			!reflect.DeepEqual(
+				controlPlaneTest.Status.SecretNames,
+				secretNames,
+			) ||
 			controlPlaneTest.Status.ServiceName != serviceName ||
 			controlPlaneTest.Status.ReadyReplicas != newReadyReplicas ||
 			controlPlaneTest.Status.AvailableReplicas != newAvailableReplicas ||
@@ -1335,6 +2171,7 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		controlPlaneTest.Status.DeploymentNames = deploymentNames
 		controlPlaneTest.Status.ServiceName = serviceName
 		controlPlaneTest.Status.ConfigMapNames = configMapNames
+		controlPlaneTest.Status.SecretNames = secretNames
 		controlPlaneTest.Status.ReadyReplicas = newReadyReplicas
 		controlPlaneTest.Status.AvailableReplicas = newAvailableReplicas
 
@@ -1387,123 +2224,275 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// Force des mises à jour Status très fréquentes
 	// afin de générer davantage de PATCH/UPDATE
 	// sur l'API Server et etcd.
+	if apiServerEnabled {
+		if frequentStatusUpdates {
+			fmt.Println("🖥️🔥📊 │ Frequent Status Updates activé")
 
-	if controlPlaneTest.Spec.APIServerStress.Enabled &&
-		controlPlaneTest.Spec.APIServerStress.FrequentStatusUpdates {
+			controlPlaneTest.Status.ObservedGeneration = controlPlaneTest.Generation
+			controlPlaneTest.Status.ReadyReplicas = newReadyReplicas
+			controlPlaneTest.Status.AvailableReplicas = newAvailableReplicas
+			controlPlaneTest.Status.LastStatusUpdate = metav1.Now()
 
-		fmt.Println("🖥️🔥📊 │ Frequent Status Updates activé")
-
-		controlPlaneTest.Status.ObservedGeneration = controlPlaneTest.Generation
-		controlPlaneTest.Status.ReadyReplicas = newReadyReplicas
-		controlPlaneTest.Status.AvailableReplicas = newAvailableReplicas
-
-		err = r.Status().Update(
-			ctx,
-			controlPlaneTest,
-		)
-
-		// METRIQUE
-		// le nombre de mises à jour Status envoyées à l'API Server
-		statusUpdatesTotal.WithLabelValues(
-			controlPlaneTest.Name,
-			controlPlaneTest.Namespace,
-			controlPlaneTest.Spec.OperatorStress.Profile,
-		).Inc()
-
-		if err != nil {
-			fmt.Println("🖥️🔥❌ │ Impossible de mettre à jour le Status")
-			typeReconciliation = "err_frequent_status_update"
-			erreursReconciliationTotal.Inc()
-			return ctrl.Result{}, err
-		}
-	}
-
-	// =====================================
-	// AGGRESSIVE RECONCILE
-	// =====================================
-	// Force des réconciliations très fréquentes
-	// via requeue automatique.
-
-	if controlPlaneTest.Spec.APIServerStress.Enabled &&
-		controlPlaneTest.Spec.APIServerStress.AggressiveReconcile {
-
-		fmt.Println("🖥️🔥🔄 │ Aggressive Reconcile activé")
-
-		// METRIQUE
-		// le nombre de requeues forcés par l'opérateur
-		requeuesForceesTotal.WithLabelValues(
-			controlPlaneTest.Name,
-			controlPlaneTest.Namespace,
-			controlPlaneTest.Spec.OperatorStress.Profile,
-		).Inc()
-
-		requeueResult = &ctrl.Result{
-			RequeueAfter: 1 * time.Second,
-		}
-	}
-
-	// =====================================
-	// RECREATE RESOURCES
-	// =====================================
-	// Force suppression/recréation systématique
-	// des Deployments afin de provoquer :
-	// - DELETE
-	// - CREATE
-	// - ReplicaSet churn
-	// - Pod churn
-	// - Events Kubernetes massifs
-
-	if controlPlaneTest.Spec.APIServerStress.Enabled &&
-		controlPlaneTest.Spec.APIServerStress.RecreateResources {
-		deploymentList := &appsv1.DeploymentList{}
-
-		err = r.List(
-			ctx,
-			deploymentList,
-			client.InNamespace(req.Namespace),
-			client.MatchingLabels{
-				"app": controlPlaneTest.Name,
-			},
-		)
-
-		if err != nil {
-			fmt.Println("🖥️🔥❌ │ Impossible de lister les Deployments")
-			typeReconciliation = "err_list_recreate"
-			erreursReconciliationTotal.Inc()
-			return ctrl.Result{}, err
-		}
-
-		fmt.Println("🖥️🔥🗑️ │ Recreate Resources activé")
-		for _, deployment := range deploymentList.Items {
-			fmt.Println(
-				"🖥️🔥🗑️📦 │ Suppression forcée Deployment :",
-				deployment.Name,
-			)
-
-			err = r.Delete(
+			err = r.Status().Update(
 				ctx,
-				&deployment,
+				controlPlaneTest,
 			)
 
 			// METRIQUE
-			// Mesure le nombre de ressources supprimées/recréées
-			resourcesRecreatedTotal.WithLabelValues(
+			// le nombre de mises à jour Status envoyées à l'API Server
+			statusUpdatesTotal.WithLabelValues(
 				controlPlaneTest.Name,
 				controlPlaneTest.Namespace,
-				controlPlaneTest.Spec.OperatorStress.Profile,
+				"apiserver",
 			).Inc()
 
 			if err != nil {
-				fmt.Println("🖥️🔥❌ │ Impossible de supprimer le Deployment")
-				typeReconciliation = "err_recreate_delete"
+				fmt.Println("🖥️🔥❌ │ Impossible de mettre à jour le Status")
+				typeReconciliation = "err_frequent_status_update"
 				erreursReconciliationTotal.Inc()
 				return ctrl.Result{}, err
 			}
 		}
 
-		if requeueResult == nil {
+		// =====================================
+		// AGGRESSIVE RECONCILE
+		// =====================================
+		// Force des réconciliations très fréquentes
+		// via requeue automatique.
+
+		if aggressiveReconcile {
+			fmt.Println("🖥️🔥🔄 │ Aggressive Reconcile activé")
+
+			if aggressiveRequeueDelay <= 0 {
+				aggressiveRequeueDelay = 1000
+			}
+
+			// METRIQUE
+			// le nombre de requeues forcés par l'opérateur
+			requeuesForceesTotal.WithLabelValues(
+				controlPlaneTest.Name,
+				controlPlaneTest.Namespace,
+				"apiserver",
+			).Inc()
+
 			requeueResult = &ctrl.Result{
-				RequeueAfter: 2 * time.Second,
+				RequeueAfter: time.Duration(aggressiveRequeueDelay) * time.Millisecond,
+			}
+		}
+
+		// =====================================
+		// RECREATE RESOURCES
+		// =====================================
+		// Force suppression/recréation systématique
+		// des Deployments afin de provoquer :
+		// - DELETE
+		// - CREATE
+		// - ReplicaSet churn
+		// - Pod churn
+		// - Events Kubernetes massifs
+
+		if recreateResources {
+			deploymentList := &appsv1.DeploymentList{}
+
+			err = r.List(
+				ctx,
+				deploymentList,
+				client.InNamespace(req.Namespace),
+				client.MatchingLabels{
+					"app": controlPlaneTest.Name,
+				},
+			)
+
+			if err != nil {
+				fmt.Println("🖥️🔥❌ │ Impossible de lister les Deployments")
+				typeReconciliation = "err_list_recreate"
+				erreursReconciliationTotal.Inc()
+				return ctrl.Result{}, err
+			}
+
+			fmt.Println("🖥️🔥🗑️ │ Recreate Resources activé")
+			for _, deployment := range deploymentList.Items {
+				fmt.Println(
+					"🖥️🔥🗑️📦 │ Suppression forcée Deployment :",
+					deployment.Name,
+				)
+
+				err = r.Delete(
+					ctx,
+					&deployment,
+				)
+
+				// METRIQUE
+				// Mesure le nombre de ressources supprimées/recréées
+				resourcesRecreatedTotal.WithLabelValues(
+					controlPlaneTest.Name,
+					controlPlaneTest.Namespace,
+					"apiserver",
+				).Inc()
+
+				if err != nil {
+					fmt.Println("🖥️🔥❌ │ Impossible de supprimer le Deployment")
+					typeReconciliation = "err_recreate_delete"
+					erreursReconciliationTotal.Inc()
+					return ctrl.Result{}, err
+				}
+			}
+
+			if requeueResult == nil {
+				requeueResult = &ctrl.Result{
+					RequeueAfter: time.Duration(reconcileRequeueDelay) * time.Millisecond,
+				}
+			}
+		}
+	}
+
+	// =========================================================
+	// ************ CONTROLLER MANAGER STRESS ***********
+	// ========================================================
+
+	if ctrlmngrEnabled {
+
+		// =====================================
+		// RECREATE REPLICASETS
+		// =====================================
+		if recreateReplicaSets {
+			fmt.Println("🖥️🔥📦 │ Recreate ReplicaSets activé")
+
+			replicaSetList := &appsv1.ReplicaSetList{}
+
+			err = r.List(
+				ctx,
+				replicaSetList,
+				client.InNamespace(req.Namespace),
+				client.MatchingLabels{
+					"app": controlPlaneTest.Name,
+				},
+			)
+
+			if err != nil {
+				fmt.Println("🖥️🔥❌ │ Impossible de lister les ReplicaSets")
+				typeReconciliation = "err_list_replicasets"
+				erreursReconciliationTotal.Inc()
+				return ctrl.Result{}, err
+			}
+
+			for _, replicaSet := range replicaSetList.Items {
+				fmt.Println("🖥️🔥🗑️📦 │ Suppression ReplicaSet :", replicaSet.Name)
+
+				err = r.Delete(
+					ctx,
+					&replicaSet,
+				)
+
+				if err != nil {
+					fmt.Println("🖥️🔥❌ │ Impossible de supprimer ReplicaSet")
+					typeReconciliation = "err_delete_replicaset"
+					erreursReconciliationTotal.Inc()
+					return ctrl.Result{}, err
+				}
+			}
+
+			if replicaRecreateDelay <= 0 {
+				replicaRecreateDelay = 1000
+			}
+
+			if requeueResult == nil {
+				requeueResult = &ctrl.Result{
+					RequeueAfter: time.Duration(replicaRecreateDelay) * time.Millisecond,
+				}
+			}
+		}
+
+		// =====================================
+		// AGGRESSIVE GARBAGE COLLECTION
+		// =====================================
+		if aggressiveGarbageCollection {
+			fmt.Println("🖥️🔥🧹 │ Aggressive Garbage Collection activé")
+
+			configMapList := &corev1.ConfigMapList{}
+
+			err = r.List(
+				ctx,
+				configMapList,
+				client.InNamespace(req.Namespace),
+				client.MatchingLabels{
+					"app": controlPlaneTest.Name,
+				},
+			)
+
+			if err != nil {
+				fmt.Println("🖥️🔥❌ │ Impossible de lister les ConfigMaps")
+				typeReconciliation = "err_gc_configmaps"
+				erreursReconciliationTotal.Inc()
+				return ctrl.Result{}, err
+			}
+
+			for _, configMap := range configMapList.Items {
+
+				fmt.Println(
+					"🖥️🔥🗑️📦 │ Suppression ConfigMap :",
+					configMap.Name,
+				)
+
+				err = r.Delete(
+					ctx,
+					&configMap,
+				)
+
+				if err != nil {
+					fmt.Println("🖥️🔥❌ │ Impossible de supprimer ConfigMap")
+					typeReconciliation = "err_delete_configmap_gc"
+					erreursReconciliationTotal.Inc()
+					return ctrl.Result{}, err
+				}
+			}
+
+			secretList := &corev1.SecretList{}
+
+			err = r.List(
+				ctx,
+				secretList,
+				client.InNamespace(req.Namespace),
+				client.MatchingLabels{
+					"app": controlPlaneTest.Name,
+				},
+			)
+
+			if err != nil {
+				fmt.Println("🖥️🔥❌ │ Impossible de lister les Secrets")
+				typeReconciliation = "err_gc_secrets"
+				erreursReconciliationTotal.Inc()
+				return ctrl.Result{}, err
+			}
+
+			for _, secret := range secretList.Items {
+
+				fmt.Println(
+					"🖥️🔥🗑️🔐 │ Suppression Secret :",
+					secret.Name,
+				)
+
+				err = r.Delete(
+					ctx,
+					&secret,
+				)
+
+				if err != nil {
+					fmt.Println("🖥️🔥❌ │ Impossible de supprimer Secret")
+					typeReconciliation = "err_delete_secret_gc"
+					erreursReconciliationTotal.Inc()
+					return ctrl.Result{}, err
+				}
+			}
+
+			if garbageCollectionDelay <= 0 {
+				garbageCollectionDelay = 1000
+			}
+
+			if requeueResult == nil {
+				requeueResult = &ctrl.Result{
+					RequeueAfter: time.Duration(garbageCollectionDelay) * time.Millisecond,
+				}
 			}
 		}
 	}
@@ -1517,13 +2506,10 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// - rescheduling
 	// - events Kubernetes massifs
 
-	if controlPlaneTest.Spec.PodLifecycleStorm.Enabled {
+	if podStormEnabled {
 		fmt.Println("🖥️🌪️📦 │ Pod Lifecycle Storm activé")
 
-		// =====================================
-		// RECUPERATION PODS
-		// =====================================
-
+		// ## RECUPERATION PODS
 		podList := &corev1.PodList{}
 		var pendingPods int
 
@@ -1542,6 +2528,7 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			erreursReconciliationTotal.Inc()
 			return ctrl.Result{}, err
 		}
+
 		// METRIQUE
 		// Comptage Pods Pending
 		for _, pod := range podList.Items {
@@ -1563,55 +2550,51 @@ func (r *ControlPlaneTestReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		// =====================================
 		// DELETE RANDOM POD
 		// =====================================
-		if controlPlaneTest.Spec.PodLifecycleStorm.DeletePodsRandomly {
-			if len(podList.Items) > 0 {
-				randomIndex := rand.Intn(len(podList.Items))
-				randomPod := podList.Items[randomIndex]
+		if deletePodsRandomly && len(podList.Items) > 0 {
+			randomIndex := rand.Intn(len(podList.Items))
+			randomPod := podList.Items[randomIndex]
 
-				fmt.Println(
-					"🖥️🌪️🗑️📦 │ Suppression aléatoire Pod :",
-					randomPod.Name,
-				)
+			fmt.Println("🖥️🌪️🗑️📦 │ Suppression aléatoire Pod :", randomPod.Name)
 
-				err = r.Delete(
-					ctx,
-					&randomPod,
-				)
+			err = r.Delete(
+				ctx,
+				&randomPod,
+			)
 
-				// METRIQUE
-				// Mesure le nombre total de Pods supprimés par le PodLifecycleStorm
-				podsSupprimesTotal.WithLabelValues(
-					controlPlaneTest.Name,
-					controlPlaneTest.Namespace,
-					controlPlaneTest.Spec.OperatorStress.Profile,
-				).Inc()
+			// METRIQUE
+			// Mesure le nombre total de Pods supprimés par le PodLifecycleStorm
+			podsSupprimesTotal.WithLabelValues(
+				controlPlaneTest.Name,
+				controlPlaneTest.Namespace,
+				controlPlaneTest.Spec.OperatorStress.Profile,
+			).Inc()
 
-				if err != nil {
-					fmt.Println("🖥️🌪️❌ │ Impossible de supprimer le Pod")
-					typeReconciliation = "err_podstorm_delete"
-					erreursReconciliationTotal.Inc()
-					return ctrl.Result{}, err
-				}
+			if err != nil {
+				fmt.Println("🖥️🌪️❌ │ Impossible de supprimer le Pod")
+				typeReconciliation = "err_podstorm_delete"
+				erreursReconciliationTotal.Inc()
+				return ctrl.Result{}, err
 			}
-		}
 
-		// =====================================
-		// REQUEUE PERIODIQUE
-		// =====================================
+			// =====================================
+			// REQUEUE PERIODIQUE
+			// =====================================
+			effectiveDeleteDelay := deletePodsDelay
 
-		if controlPlaneTest.Spec.PodLifecycleStorm.RestartPodsEverySeconds > 0 {
-			restartDelay := time.Duration(
-				controlPlaneTest.Spec.PodLifecycleStorm.RestartPodsEverySeconds,
-			) * time.Second
+			if effectiveDeleteDelay <= 0 {
+				effectiveDeleteDelay = 1000
+			}
+
+			deleteDelay := time.Duration(effectiveDeleteDelay) * time.Millisecond
 
 			fmt.Println(
 				"🖥️🌪️🔄 │ Requeue Pod Storm :",
-				restartDelay,
+				deleteDelay,
 			)
 
 			if requeueResult == nil {
 				requeueResult = &ctrl.Result{
-					RequeueAfter: restartDelay,
+					RequeueAfter: deleteDelay,
 				}
 			}
 		}
@@ -1646,15 +2629,14 @@ func isPodReady(pod *corev1.Pod) bool {
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ControlPlaneTestReconciler) SetupWithManager(mgr ctrl.Manager) error {
-
+	var err error
 	// Indexation locale au controleur de notre ressource (permet de retrouver rapidement
 	// les parents sans tester de multiples ressources)
-	if err := mgr.GetFieldIndexer().IndexField(
+	if err = mgr.GetFieldIndexer().IndexField(
 		context.Background(),
 		&appsv1.Deployment{},
 		deploymentOwnerKey,
 		func(rawObj client.Object) []string {
-
 			deployment := rawObj.(*appsv1.Deployment)
 
 			// Récupération du propriétaire de l'objet Deployment
@@ -1688,7 +2670,8 @@ func (r *ControlPlaneTestReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.Service{}).
 		Owns(&corev1.ConfigMap{}).
-		Owns(&corev1.Pod{}).
+		Owns(&corev1.Secret{}).
+		// Owns(&corev1.Pod{}).
 		Named("controlplanetest").
 		// On ajoute des limmitations :
 		// - MaxConcurrentReconciles : nbr max de réconciliation simultanées

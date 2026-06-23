@@ -39,7 +39,7 @@ spec:
           spec:
             description: spec defines the desired state of ControlPlaneTest
             properties:
-              apiServerStress:
+              apiServerEtcdStress:
                 properties:
                   aggressiveReconcile:
                     type: boolean
@@ -53,43 +53,64 @@ spec:
                   qps:
                     format: int32
                     type: integer
+                  reconcileRequeueDelay:
+                    description: Nombre de millisecondes avant requeue
+                    format: int32
+                    type: integer
+                  recreateRequeueDelay:
+                    description: Nombre de millisecondes avant requeue
+                    format: int32
+                    type: integer
                   recreateResources:
                     type: boolean
                 type: object
+              configMapCount:
+                description: ConfigMaps & Secrets
+                format: int32
+                type: integer
+              configMapSizeKB:
+                format: int32
+                type: integer
+              containerName:
+                description: |-
+                  ============================================================
+                  WORKLOAD DEFINITION
+                  ============================================================
+                type: string
               controllerManagerStress:
                 properties:
                   aggressiveGarbageCollection:
                     type: boolean
-                  deploymentCount:
-                    format: int32
-                    type: integer
                   enabled:
                     type: boolean
+                  garbageCollectionDelay:
+                    format: int32
+                    type: integer
                   recreateReplicaSets:
                     type: boolean
-                  replicasPerDeployment:
+                  replicaRecreateDelay:
                     format: int32
                     type: integer
                 type: object
-              etcdStress:
+              customLabel:
+                description: |-
+                  ControlPlaneTestSpec defines the desired state of ControlPlaneTest
+                  INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+                  Important: Run "make" to regenerate code after modifying this file
+                  The following markers will use OpenAPI v3 schema to validate the value
+                  More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
                 properties:
-                  configMapCount:
-                    format: int32
-                    type: integer
-                  configMapSizeKB:
-                    format: int32
-                    type: integer
-                  enabled:
-                    type: boolean
-                  secretCount:
-                    format: int32
-                    type: integer
-                  secretSizeKB:
-                    format: int32
-                    type: integer
+                  key:
+                    type: string
+                  value:
+                    type: string
                 type: object
+              deploymentCount:
+                description: Nombre de Deployments à générer.
+                format: int32
+                type: integer
               image:
-                minLength: 1
+                description: Image utilisée pour les Pods générés.
                 type: string
               operatorStress:
                 properties:
@@ -109,18 +130,23 @@ spec:
                   reconcile:
                     properties:
                       baseDelaySeconds:
+                        description: Délai (avant réconciliation ?)
                         format: int32
                         type: integer
                       burst:
+                        description: Explosion/Pic de requêtes recevable
                         format: int32
                         type: integer
                       maxConcurrent:
+                        description: Nbre réconciliations simultanées possibles
                         format: int32
                         type: integer
                       maxDelaySeconds:
+                        description: Délai maximum avant nouvelle réconciliation
                         format: int32
                         type: integer
                       qps:
+                        description: QPS autorisées pour le pod operator_controller
                         format: int32
                         type: integer
                     type: object
@@ -129,41 +155,104 @@ spec:
                 properties:
                   crashLoopSimulation:
                     type: boolean
+                  deletePodsDelay:
+                    format: int32
+                    type: integer
                   deletePodsRandomly:
                     type: boolean
                   enabled:
                     type: boolean
-                  restartPodsEverySeconds:
-                    format: int32
-                    type: integer
                 type: object
-              replicas:
+              replicasPerDeployment:
+                description: Nombre de Pods par Deployment.
                 format: int32
                 type: integer
+              resourcesPerPod:
+                properties:
+                  cpuLimit:
+                    description: Max autorisé à Kubernetes
+                    type: string
+                  cpuRequest:
+                    description: Ressources demandées
+                    type: string
+                  memoryLimit:
+                    type: string
+                  memoryRequest:
+                    type: string
+                type: object
               schedulerStress:
                 properties:
-                  affinity:
+                  affinityMode:
+                    description: |-
+                      Valeurs possibles pour AffinityMode et AntiAffinityMode :
+                      "soft" = PreferredDuringSchedulingIgnoredDuringExecution
+                      "hard" = RequiredDuringSchedulingIgnoredDuringExecution
+
+                      Utilisé pour forcer le regroupement avec autres pods (par label)
                     type: string
-                  antiAffinity:
+                  affinitySelector:
+                    description: |-
+                      Paramètres influençant le comportement du Scheduler Kubernetes.
+
+                      Ces paramètres ne modifient PAS la forme de la charge.
+                      Ils influencent uniquement le placement des Pods
+                      sur les nœuds du cluster.
+                    properties:
+                      key:
+                        type: string
+                      value:
+                        type: string
+                    type: object
+                  antiAffinityMode:
+                    description: PodAntiAffinity, forcera la séparation des pods selon
+                      un critère donné
                     type: string
-                  deploymentCount:
-                    format: int32
-                    type: integer
+                  antiAffinitySelector:
+                    description: |-
+                      Paramètres influençant le comportement du Scheduler Kubernetes.
+
+                      Ces paramètres ne modifient PAS la forme de la charge.
+                      Ils influencent uniquement le placement des Pods
+                      sur les nœuds du cluster.
+                    properties:
+                      key:
+                        type: string
+                      value:
+                        type: string
+                    type: object
                   enabled:
+                    description: Active le scénario Scheduler Stress.
                     type: boolean
-                  nodeCount:
-                    format: int32
-                    type: integer
                   nodeSelector:
                     additionalProperties:
                       type: string
+                    description: |-
+                      Nombre de nœuds ciblés par le scénario, utilisés par certaines stratégies de placement. En attente d'upgrade future
+                      NodeCount int32 `json:"nodeCount,omitempty"`
+                      Sélection stricte des nœuds via labels Kubernetes.
                     type: object
-                  replicasPerDeployment:
-                    format: int32
-                    type: integer
                   topologySpread:
+                    description: Répartition homogène des Pods = équilibrage
                     type: boolean
                 type: object
+              secretCount:
+                format: int32
+                type: integer
+              secretSizeKB:
+                format: int32
+                type: integer
+              servicePort:
+                description: Définition des ports d'accès et cible de l'application
+                  déployé via la CR
+                format: int32
+                type: integer
+              targetPort:
+                format: int32
+                type: integer
+            required:
+            - containerName
+            - deploymentCount
+            - image
             type: object
           status:
             description: status defines the observed state of ControlPlaneTest
@@ -235,12 +324,19 @@ spec:
                 items:
                   type: string
                 type: array
+              lastStatusUpdate:
+                format: date-time
+                type: string
               observedGeneration:
                 format: int64
                 type: integer
               readyReplicas:
                 format: int32
                 type: integer
+              secretNames:
+                items:
+                  type: string
+                type: array
               serviceName:
                 type: string
             type: object
