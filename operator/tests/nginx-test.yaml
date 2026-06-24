@@ -1,8 +1,0 @@
-apiVersion: controlplane.lab.local/v1alpha1
-kind: ControlPlaneTest
-metadata:
-  name: nginx-test
-spec:
-  image: nginx:latest
-  replicas: 4
-status: {}

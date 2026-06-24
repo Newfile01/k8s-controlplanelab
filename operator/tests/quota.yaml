@@ -8,7 +8,7 @@ metadata:
 spec:
   hard:
     # limite de pods
-    pods: "200"
+    pods: "350"
     # resources max demandée pour le namespace si possible
     requests.cpu: "6"
     requests.memory: 10Gi

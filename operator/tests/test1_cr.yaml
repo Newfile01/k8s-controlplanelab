@@ -1,9 +1,0 @@
-apiVersion: controlplane.lab.local/v1alpha1
-kind: ControlPlaneTest
-metadata:
-  labels:
-    app.kubernetes.io/name: operator
-    app.kubernetes.io/managed-by: kustomize
-  name: controlplanetest-sample
-spec:
-  foo: jean

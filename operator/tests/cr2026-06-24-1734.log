@@ -1,0 +1,24 @@
+==============================================================
+TEST_LABEL         : D10R1_R+1_60s_30min            CR_NAME            : cr2026-06-24-1734
+
+Début             : 2026-06-24 17:34:41            Fin prévue        : 2026-06-24 18:04:41
+
+DEPLOYMENTS        : 10                             CPU                : 25m
+REPLICAS_PER_DEP   : 1                              MEM                : 32Mi
+
+CONFIGMAPS         : 0                              SIZE_CM            : 0kB
+SECRETS            : 0                              SIZE_SEC           : 0kB
+
+VARIABLE_LOADS     : REPLICAS_PER_DEP
+INCREMENT          : 1                              UPDATE_INTERVAL    : 60s
+TEST_DURATION      : 1800s
+==============================================================
+
+[2026-06-24 17:35:44] UPDATE CR cr2026-06-24-1734
+  REPLICAS_PER_DEP=2
+
+[2026-06-24 17:36:46] UPDATE CR cr2026-06-24-1734
+  REPLICAS_PER_DEP=3
+
+[2026-06-24 17:37:47] UPDATE CR cr2026-06-24-1734
+  REPLICAS_PER_DEP=4
