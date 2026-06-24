@@ -127,8 +127,10 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - configmaps
+  - pods
   - services
+  - configmaps
+  - secrets
   verbs:
   - create
   - delete
@@ -137,19 +139,12 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - ""
-  resources:
-  - pods
-  verbs:
-  - delete
-  - get
-  - list
-  - watch
+
 - apiGroups:
   - apps
   resources:
   - deployments
+  - replicasets
   verbs:
   - create
   - delete

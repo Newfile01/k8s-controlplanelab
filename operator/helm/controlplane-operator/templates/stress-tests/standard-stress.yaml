@@ -1,0 +1,113 @@
+{{- if .Values.stressTests.enabled }}
+
+apiVersion: controlplane.lab.local/v1alpha1
+kind: ControlPlaneTest
+metadata:
+  name: standard-stress
+  namespace: {{ .Values.namespace }}
+
+spec:
+
+  # ==========================================================
+  # WORKLOAD DEFINITION
+  # ==========================================================
+
+  image: {{ .Values.stressTests.image | quote }}
+
+  containerName: {{ .Values.stressTests.containerName | quote }}
+
+  deploymentCount: {{ .Values.stressTests.deploymentCount }}
+  replicasPerDeployment: {{ .Values.stressTests.replicasPerDeployment }}
+
+  servicePort: {{ .Values.stressTests.servicePort }}
+  targetPort: {{ .Values.stressTests.targetPort }}
+
+  customLabel:
+    key: {{ .Values.stressTests.customLabel.key | quote }}
+    value: {{ .Values.stressTests.customLabel.value | quote }}
+
+  resourcesPerPod:
+    cpuRequest: {{ .Values.stressTests.resourcesPerPod.cpuRequest | quote }}
+    cpuLimit: {{ .Values.stressTests.resourcesPerPod.cpuLimit | quote }}
+    memoryRequest: {{ .Values.stressTests.resourcesPerPod.memoryRequest | quote }}
+    memoryLimit: {{ .Values.stressTests.resourcesPerPod.memoryLimit | quote }}
+
+  configMapCount: {{ .Values.stressTests.configMapCount }}
+  configMapSizeKB: {{ .Values.stressTests.configMapSizeKB }}
+
+  secretCount: {{ .Values.stressTests.secretCount }}
+  secretSizeKB: {{ .Values.stressTests.secretSizeKB }}
+
+  # ==========================================================
+  # SCHEDULER STRESS
+  # ==========================================================
+
+  schedulerStress:
+    enabled: {{ .Values.stressTests.scheduler.enabled }}
+
+    nodeSelector:
+{{ toYaml .Values.stressTests.scheduler.nodeSelector | indent 6 }}
+
+    topologySpread: {{ .Values.stressTests.scheduler.topologySpread }}
+
+    affinityMode: {{ .Values.stressTests.scheduler.affinityMode | quote }}
+
+    affinitySelector:
+      key: {{ .Values.stressTests.scheduler.affinityKeyLabelSelector | quote }}
+      value: {{ .Values.stressTests.scheduler.affinityValueLabelSelector | quote }}
+
+    antiAffinityMode: {{ .Values.stressTests.scheduler.antiAffinityMode | quote }}
+
+    antiAffinitySelector:
+      key: {{ .Values.stressTests.scheduler.antiAffinityKeyLabelSelector | quote }}
+      value: {{ .Values.stressTests.scheduler.antiAffinityValueLabelSelector | quote }}
+
+  # ==========================================================
+  # API SERVER / ETCD STRESS
+  # ==========================================================
+
+  apiServerEtcdStress:
+    enabled: {{ .Values.stressTests.apiServerEtcd.enabled }}
+
+    frequentStatusUpdates: {{ .Values.stressTests.apiServerEtcd.frequentStatusUpdates }}
+
+    aggressiveReconcile: {{ .Values.stressTests.apiServerEtcd.aggressiveReconcile }}
+    reconcileRequeueDelay: {{ .Values.stressTests.apiServerEtcd.reconcileRequeueDelay }}
+
+    recreateResources: {{ .Values.stressTests.apiServerEtcd.recreateResources }}
+
+  # ==========================================================
+  # CONTROLLER MANAGER STRESS
+  # ==========================================================
+
+  controllerManagerStress:
+    enabled: {{ .Values.stressTests.controllerManager.enabled }}
+
+    recreateReplicaSets: {{ .Values.stressTests.controllerManager.recreateReplicaSets }}
+    replicaRecreateDelay: {{ .Values.stressTests.controllerManager.replicaRecreateDelay }}
+
+    aggressiveGarbageCollection: {{ .Values.stressTests.controllerManager.aggressiveGarbageCollection }}
+    garbageCollectionDelay: {{ .Values.stressTests.controllerManager.garbageCollectionDelay }}
+
+  # ==========================================================
+  # OPERATOR STRESS
+  # ==========================================================
+
+  operatorStress:
+    enabled: {{ .Values.stressTests.operator.enabled }}
+
+    profile: {{ .Values.stressTests.operator.profile | quote }}
+
+  # ==========================================================
+  # POD LIFECYCLE STORM
+  # ==========================================================
+
+  podLifecycleStorm:
+    enabled: {{ .Values.stressTests.podLifecycleStorm.enabled }}
+
+    deletePodsRandomly: {{ .Values.stressTests.podLifecycleStorm.deletePodsRandomly }}
+    deletePodsDelay: {{ .Values.stressTests.podLifecycleStorm.deletePodsDelay }}
+
+    crashLoopSimulation: {{ .Values.stressTests.podLifecycleStorm.crashLoopSimulation }}
+
+{{- end }}

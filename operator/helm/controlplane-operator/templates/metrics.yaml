@@ -26,7 +26,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: operator
     control-plane: controller-manager
-    release: monitoring-stack
+    release: {{ .Values.prometheus.release }}
   name: operator-controller-manager-metrics-monitor
   namespace: {{ .Values.namespace }}
 spec:

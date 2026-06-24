@@ -9,7 +9,7 @@ namespace: operator-system
 # This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
 image:
   repository: newfile01/operator-k8s
-  tag: v6
+  tag: v7
   pullPolicy: Always
 
 # This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
@@ -59,136 +59,120 @@ serviceMonitor:
 grafana:
   namespace: monitoring-stack
 
+prometheus:
+  release: monitoring-stack
+
 dashboards:
   enabled: true
 
-# STRESS TEST
 stressTests:
+  enabled: false
+  # ==========================================================
+  # WORKLOAD DEFINITION
+  # ==========================================================
   image: nginx
-  replicas: 20
 
+  containerName: app
+
+  deploymentCount: 10
+  replicasPerDeployment: 20
+
+  servicePort: 80
+  targetPort: 80
+
+  customLabel:
+    key: stress
+    value: standard
+
+  resourcesPerPod:
+    cpuRequest: "25m"
+    cpuLimit: "50m"
+    memoryRequest: "32Mi"
+    memoryLimit: "64Mi"
+
+  configMapCount: 20
+  configMapSizeKB: 500
+
+  secretCount: 20
+  secretSizeKB: 500
+
+  # ==========================================================
+  # SCHEDULER STRESS
+  # ==========================================================
   scheduler:
-    enabled: false
-    deploymentCount: 50
-    replicasPerDeployment: 20
+
+    enabled: true
+
+    nodeSelector:
+      minikube.k8s.io/primary: "false"
+
     topologySpread: true
 
-  apiServer:
+    affinityMode: ""
+    affinityKeyLabelSelector: ""
+    affinityValueLabelSelector: ""
+
+    antiAffinityMode: ""
+    antiAffinityKeyLabelSelector: ""
+    antiAffinityValueLabelSelector: ""
+
+  # ==========================================================
+  # API SERVER / ETCD STRESS
+  # ==========================================================
+  apiServerEtcd:
+
+    enabled: true
+
+    frequentStatusUpdates: false
+
+    aggressiveReconcile: false
+    reconcileRequeueDelay: 1000
+
+    recreateResources: false
+
+    # qps: 100
+    # burst: 200
+
+  # ==========================================================
+  # CONTROLLER MANAGER STRESS
+  # ==========================================================
+  controllerManager:
+
     enabled: false
-    qps: 200
-    burst: 400
-    aggressiveReconcile: true
-    frequentStatusUpdates: true
-    recreateResources: true
 
-  etcd:
-    enabled: false
-    configMapCount: 200
-    configMapSizeKB: 1024
-    secretCount: 200
-    secretSizeKB: 1024
+    recreateReplicaSets: false
+    replicaRecreateDelay: 1000
 
+    aggressiveGarbageCollection: false
+    garbageCollectionDelay: 1000
 
-# This block is for setting up the ingress for more information can be found here: https://kubernetes.io/docs/concepts/services-networking/ingress/
-# ingress:
-#   enabled: false
-#   className: ""
-#   annotations: {}
-#     # kubernetes.io/ingress.class: nginx
-#     # kubernetes.io/tls-acme: "true"
-#   hosts:
-#     - host: chart-example.local
-#       paths:
-#         - path: /
-#           pathType: ImplementationSpecific
-#   tls: []
-    # - secretName: chart-example-tls
-    #   hosts:
-    #     - chart-example.local
+  # ==========================================================
+  # OPERATOR STRESS
+  # ==========================================================
+  operator:
+    enabled: true
+    profile: "standard"
 
-# -- Expose the service via gateway-api HTTPRoute
-# Requires Gateway API resources and suitable controller installed within the cluster
-# (see: https://gateway-api.sigs.k8s.io/guides/)
-# httpRoute:
-#   # HTTPRoute enabled.
-#   enabled: false
-#   # HTTPRoute annotations.
-#   annotations: {}
-#   # Which Gateways this Route is attached to.
-#   parentRefs:
-#   - name: gateway
-#     sectionName: http
-#     # namespace: default
-#   # Hostnames matching HTTP header.
-#   hostnames:
-#   - chart-example.local
-#   # List of rules and filters applied.
-#   rules:
-#   - matches:
-#     - path:
-#         type: PathPrefix
-#         value: /headers
-  #   filters:
-  #   - type: RequestHeaderModifier
-  #     requestHeaderModifier:
-  #       set:
-  #       - name: My-Overwrite-Header
-  #         value: this-is-the-only-value
-  #       remove:
-  #       - User-Agent
-  # - matches:
-  #   - path:
-  #       type: PathPrefix
-  #       value: /echo
-  #     headers:
-  #     - name: version
-  #       value: v2
+    # maxConcurrent: 1
 
-resources: {}
-  # We usually recommend not to specify default resources and to leave this as a conscious
-  # choice for the user. This also increases chances charts run on environments with little
-  # resources, such as Minikube. If you do want to specify resources, uncomment the following
-  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  # limits:
-  #   cpu: 100m
-  #   memory: 128Mi
-  # requests:
-  #   cpu: 100m
-  #   memory: 128Mi
+    # # qps: 100
+    # # burst: 200
 
-# This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
-# livenessProbe:
-#   httpGet:
-#     path: /
-#     port: http
-# readinessProbe:
-#   httpGet:
-#     path: /
-#     port: http
+    # baseDelaySeconds: 1
+    # maxDelaySeconds: 30
 
-# This section is for setting up autoscaling more information can be found here: https://kubernetes.io/docs/concepts/workloads/autoscaling/
-# autoscaling:
-#   enabled: false
-#   minReplicas: 1
-#   maxReplicas: 100
-#   targetCPUUtilizationPercentage: 80
-  # targetMemoryUtilizationPercentage: 80
+    # watchPods: true
+    # watchDeployments: true
+    # watchConfigMaps: true
 
-# Additional volumes on the output Deployment definition.
-volumes: []
-  # - name: foo
-  #   secret:
-  #     secretName: mysecret
-  #     optional: false
+  # ==========================================================
+  # POD LIFECYCLE STORM
+  # ==========================================================
+  podLifecycleStorm:
 
-# Additional volumeMounts on the output Deployment definition.
-volumeMounts: []
-  # - name: foo
-  #   mountPath: "/etc/foo"
-  #   readOnly: true
+    enabled: true
 
-nodeSelector: {}
+    deletePodsRandomly: true
+    deletePodsDelay: 30000
 
-tolerations: []
-
-affinity: {}
+    crashLoopSimulation: false # force le container à exécuter "exit 1" 

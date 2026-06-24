@@ -9,7 +9,7 @@ metadata:
   name: operator-controller-manager
   namespace: operator-system
 ---
-# Source: controlplane-operator/templates/dashboards/apiserver-stress-dashboard-updated.yaml
+# Source: controlplane-operator/templates/dashboards/*/apiserver-stress-dashboard-updated.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -308,7 +308,7 @@ data:
       ]
     }
 ---
-# Source: controlplane-operator/templates/dashboards/controller-manager-stress-dashboard-updated.yaml
+# Source: controlplane-operator/templates/dashboards/*/controller-manager-stress-dashboard-updated.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -1785,7 +1785,7 @@ data:
       }
     }
 ---
-# Source: controlplane-operator/templates/dashboards/etcd-stress-dashboard-updated.yaml
+# Source: controlplane-operator/templates/dashboards/*/etcd-stress-dashboard-updated.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -3803,7 +3803,7 @@ data:
       }
     }
 ---
-# Source: controlplane-operator/templates/dashboards/scheduler-stress-dashboard-updated.yaml
+# Source: controlplane-operator/templates/dashboards/*/scheduler-stress-dashboard-updated.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -4214,8 +4214,10 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - configmaps
+  - pods
   - services
+  - configmaps
+  - secrets
   verbs:
   - create
   - delete
@@ -4224,19 +4226,12 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - ""
-  resources:
-  - pods
-  verbs:
-  - delete
-  - get
-  - list
-  - watch
+
 - apiGroups:
   - apps
   resources:
   - deployments
+  - replicasets
   verbs:
   - create
   - delete
@@ -4484,6 +4479,117 @@ spec:
       serviceAccountName: operator-controller-manager
       terminationGracePeriodSeconds: 10
       volumes: []
+---
+# Source: controlplane-operator/templates/stress-tests/standard-stress.yaml
+apiVersion: controlplane.lab.local/v1alpha1
+kind: ControlPlaneTest
+metadata:
+  name: standard-stress
+  namespace: operator-system
+
+spec:
+
+  # ==========================================================
+  # WORKLOAD DEFINITION
+  # ==========================================================
+
+  image: "nginx"
+
+  containerName: "app"
+
+  deploymentCount: 10
+  replicasPerDeployment: 20
+
+  servicePort: 80
+  targetPort: 80
+
+  customLabel:
+    key: "stress"
+    value: "standard"
+
+  resourcesPerPod:
+    cpuRequest: "25m"
+    cpuLimit: "50m"
+    memoryRequest: "32Mi"
+    memoryLimit: "64Mi"
+
+  configMapCount: 20
+  configMapSizeKB: 500
+
+  secretCount: 20
+  secretSizeKB: 500
+
+  # ==========================================================
+  # SCHEDULER STRESS
+  # ==========================================================
+
+  schedulerStress:
+    enabled: true
+
+    nodeSelector:
+      minikube.k8s.io/primary: "false"
+
+    topologySpread: true
+
+    affinityMode: ""
+
+    affinitySelector:
+      key: ""
+      value: ""
+
+    antiAffinityMode: ""
+
+    antiAffinitySelector:
+      key: ""
+      value: ""
+
+  # ==========================================================
+  # API SERVER / ETCD STRESS
+  # ==========================================================
+
+  apiServerEtcdStress:
+    enabled: true
+
+    frequentStatusUpdates: false
+
+    aggressiveReconcile: false
+    reconcileRequeueDelay: 1000
+
+    recreateResources: false
+
+  # ==========================================================
+  # CONTROLLER MANAGER STRESS
+  # ==========================================================
+
+  controllerManagerStress:
+    enabled: false
+
+    recreateReplicaSets: false
+    replicaRecreateDelay: 1000
+
+    aggressiveGarbageCollection: false
+    garbageCollectionDelay: 1000
+
+  # ==========================================================
+  # OPERATOR STRESS
+  # ==========================================================
+
+  operatorStress:
+    enabled: true
+
+    profile: "standard"
+
+  # ==========================================================
+  # POD LIFECYCLE STORM
+  # ==========================================================
+
+  podLifecycleStorm:
+    enabled: true
+
+    deletePodsRandomly: true
+    deletePodsDelay: 30000
+
+    crashLoopSimulation: false
 ---
 # Source: controlplane-operator/templates/metrics.yaml
 apiVersion: monitoring.coreos.com/v1

@@ -3,8 +3,8 @@ name: controlplane-operator
 description: Kubernetes control plane stress operator
 type: application
 
-version: 0.1.7
-appVersion: "v13"
+version: 0.1.10
+appVersion: "v15"
 # A chart can be either an 'application' or a 'library' chart.
 #
 # Application charts are a collection of templates that can be packaged into versioned archives
