@@ -1,0 +1,66 @@
+###############################################################
+# Kubernetes Control Plane Benchmark
+###############################################################
+
+Date        : Mon Jun 29 19:56:09 CEST 2026
+Protocole   : P11
+Scénario    : S1
+
+Configuration :
+
+    DEPLOYMENTS=0
+    REPLICAS_PER_DEP=0
+    CONFIGMAPS=0
+    SECRETS=0
+    SCHEDULER_ENABLED=true
+    NODE_SELECTOR_KEY=minikube.k8s.io/primary
+    NODE_SELECTOR_VALUE=false
+    APISERVER_ETCD_ENABLED=false
+    CONTROLLER_MANAGER_ENABLED=false
+    POD_LIFECYCLE_ENABLED=false
+    OPERATOR_ENABLED=false
+    FREQUENT_STATUS_UPDATES=false
+    AGGRESSIVE_RECONCILE=false
+    RECREATE_RESOURCES=false
+    RECREATE_REPLICASETS=false
+    AGGRESSIVE_GC=false
+    DELETE_PODS_RANDOMLY=false
+    CRASH_LOOP_SIMULATION=false
+    RECONCILE_REQUEUE_DELAY=30
+    DELETE_PODS_DELAY=30
+    GC_DELAY=30
+    REPLICA_RECREATE_DELAY=30
+    DEPLOYMENTS=72
+    REPLICAS_PER_DEP=4
+    APISERVER_ETCD_ENABLED=true
+    CONFIGMAPS=4000
+    SECRETS=4000
+    FREQUENT_STATUS_UPDATES=true
+    AGGRESSIVE_RECONCILE=true
+    RECONCILE_REQUEUE_DELAY=10
+
+###############################################################
+
+
+=======================================================
+
+DATE : Mon Jun 29 19:56:09 CEST 2026
+
+CLUSTER INITIAL
+=======================================================
+
+NAME                    CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)   
+control-plane-lab       119m         0%       1734Mi          10%         
+control-plane-lab-m02   16m          0%       256Mi           1%          
+control-plane-lab-m03   19m          0%       239Mi           1%          
+control-plane-lab-m04   28m          0%       536Mi           3%          
+
+=======================================================
+PLAN DE CONTROLE INITIAL
+=======================================================
+
+kube-system        etcd-control-plane-lab                                   19m          235Mi           
+kube-system        kube-apiserver-control-plane-lab                         36m          663Mi           
+kube-system        kube-controller-manager-control-plane-lab                13m          68Mi            
+kube-system        kube-scheduler-control-plane-lab                         5m           30Mi            
+operator-system    operator-controller-manager-78b78bbd44-7c4tq             2m           24Mi            

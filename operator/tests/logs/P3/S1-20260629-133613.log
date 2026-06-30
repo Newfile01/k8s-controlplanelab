@@ -1,0 +1,56 @@
+###############################################################
+# Kubernetes Control Plane Benchmark
+###############################################################
+
+Date        : Mon Jun 29 13:36:13 CEST 2026
+Protocole   : P3
+Scénario    : S1
+
+Configuration :
+
+    SCHEDULER_ENABLED=true
+    NODE_SELECTOR_KEY=minikube.k8s.io/primary
+    NODE_SELECTOR_VALUE=false
+    APISERVER_ETCD_ENABLED=false
+    CONTROLLER_MANAGER_ENABLED=false
+    POD_LIFECYCLE_ENABLED=false
+    OPERATOR_ENABLED=false
+    FREQUENT_STATUS_UPDATES=false
+    AGGRESSIVE_RECONCILE=false
+    RECREATE_RESOURCES=false
+    RECREATE_REPLICASETS=false
+    AGGRESSIVE_GC=false
+    DELETE_PODS_RANDOMLY=false
+    CRASH_LOOP_SIMULATION=false
+    RECONCILE_REQUEUE_DELAY=30
+    DELETE_PODS_DELAY=30
+    GC_DELAY=30
+    REPLICA_RECREATE_DELAY=30
+    CONFIGMAPS=50
+    SECRETS=50
+
+###############################################################
+
+
+=======================================================
+
+DATE : Mon Jun 29 13:36:13 CEST 2026
+
+CLUSTER INITIAL
+=======================================================
+
+NAME                    CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)   
+control-plane-lab       81m          0%       1655Mi          10%         
+control-plane-lab-m02   29m          0%       1306Mi          8%          
+control-plane-lab-m03   17m          0%       408Mi           2%          
+control-plane-lab-m04   25m          0%       719Mi           4%          
+
+=======================================================
+PLAN DE CONTROLE INITIAL
+=======================================================
+
+kube-system        etcd-control-plane-lab                                   15m          122Mi           
+kube-system        kube-apiserver-control-plane-lab                         31m          1088Mi          
+kube-system        kube-controller-manager-control-plane-lab                11m          99Mi            
+kube-system        kube-scheduler-control-plane-lab                         4m           49Mi            
+operator-system    operator-controller-manager-78b78bbd44-7c4tq             1m           27Mi            

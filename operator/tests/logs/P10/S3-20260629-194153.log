@@ -1,0 +1,37 @@
+###############################################################
+# Kubernetes Control Plane Benchmark
+###############################################################
+
+Date        : Mon Jun 29 19:41:53 CEST 2026
+Protocole   : P10
+Scénario    : S3
+
+Configuration :
+
+    RECONCILE_REQUEUE_DELAY=1
+
+###############################################################
+
+
+=======================================================
+
+DATE : Mon Jun 29 19:41:53 CEST 2026
+
+CLUSTER INITIAL
+=======================================================
+
+NAME                    CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)   
+control-plane-lab       118m         0%       1764Mi          11%         
+control-plane-lab-m02   16m          0%       255Mi           1%          
+control-plane-lab-m03   19m          0%       242Mi           1%          
+control-plane-lab-m04   29m          0%       543Mi           3%          
+
+=======================================================
+PLAN DE CONTROLE INITIAL
+=======================================================
+
+kube-system        etcd-control-plane-lab                                   18m          263Mi           
+kube-system        kube-apiserver-control-plane-lab                         36m          653Mi           
+kube-system        kube-controller-manager-control-plane-lab                13m          76Mi            
+kube-system        kube-scheduler-control-plane-lab                         5m           29Mi            
+operator-system    operator-controller-manager-78b78bbd44-7c4tq             1m           29Mi            

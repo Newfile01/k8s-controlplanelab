@@ -1,0 +1,52 @@
+==============================================================
+TEST_LABEL         : D1R1-R1-30s-180min             CR_NAME            : cr2026-06-25-1814
+
+Début             : 2026-06-25 18:14:27            Fin prévue        : 2026-06-25 18:16:27
+
+DEPLOYMENTS        : 1                              CPU                : 20m
+REPLICAS_PER_DEP   : 1                              MEM                : 30Mi
+
+CONFIGMAPS         : 0                              SIZE_CM            : 0kB
+SECRETS            : 0                              SIZE_SEC           : 0kB
+
+VARIABLE_LOADS     : REPLICAS_PER_DEP
+INCREMENT          : 1                              UPDATE_INTERVAL    : 10s
+TEST_DURATION      : 120s
+==============================================================
+
+[2026-06-25 18:14:38] UPDATE CR cr2026-06-25-1814
+  REPLICAS_PER_DEP=2
+
+[2026-06-25 18:14:49] UPDATE CR cr2026-06-25-1814
+  REPLICAS_PER_DEP=3
+
+[2026-06-25 18:14:59] UPDATE CR cr2026-06-25-1814
+  REPLICAS_PER_DEP=4
+
+[2026-06-25 18:15:09] UPDATE CR cr2026-06-25-1814
+  REPLICAS_PER_DEP=5
+
+[2026-06-25 18:15:20] UPDATE CR cr2026-06-25-1814
+  REPLICAS_PER_DEP=6
+
+[2026-06-25 18:15:30] UPDATE CR cr2026-06-25-1814
+  REPLICAS_PER_DEP=7
+
+[2026-06-25 18:15:41] UPDATE CR cr2026-06-25-1814
+  REPLICAS_PER_DEP=8
+
+[2026-06-25 18:15:52] UPDATE CR cr2026-06-25-1814
+  REPLICAS_PER_DEP=9
+
+[2026-06-25 18:16:02] UPDATE CR cr2026-06-25-1814
+  REPLICAS_PER_DEP=10
+
+[2026-06-25 18:16:12] UPDATE CR cr2026-06-25-1814
+  REPLICAS_PER_DEP=11
+
+[2026-06-25 18:16:23] UPDATE CR cr2026-06-25-1814
+  REPLICAS_PER_DEP=12
+
+[2026-06-25 18:16:34] UPDATE CR cr2026-06-25-1814
+  REPLICAS_PER_DEP=13
+[2026-06-25 18:16:34] FIN DU TEST

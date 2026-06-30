@@ -1,0 +1,53 @@
+
+===== controlplanetests =====
+No resources found in operator-system namespace.
+
+===== limitranges =====
+No resources found in operator-system namespace.
+SI ABSENT >> PROBABLEMENT PREVU ✌️
+
+===== resourcequotas =====
+NAME             REQUEST                                                   LIMIT                                     AGE
+operator-quota   pods: 0/360, requests.cpu: 0/8, requests.memory: 0/11Gi   limits.cpu: 0/10, limits.memory: 0/12Gi   4d10h
+SI ABSENT >> VERIFIER LE DIMENSIONNEMENT DES PODS !!! 🫣
+
+===== deployments =====
+NAME                          READY   UP-TO-DATE   AVAILABLE   AGE     CONTAINERS   IMAGES                      SELECTOR
+operator-controller-manager   0/1     0            0           4d12h   manager      newfile01/operator-k8s:v7   app.kubernetes.io/name=operator,control-plane=controller-manager
+
+===== replicasets =====
+NAME                                     DESIRED   CURRENT   READY   AGE     CONTAINERS   IMAGES                      SELECTOR
+operator-controller-manager-78b78bbd44   1         0         0       4d12h   manager      newfile01/operator-k8s:v7   app.kubernetes.io/name=operator,control-plane=controller-manager,pod-template-hash=78b78bbd44
+
+===== pods =====
+No resources found in operator-system namespace.
+
+===== services =====
+NAME                                          TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE     SELECTOR
+operator-controller-manager-metrics-service   ClusterIP   10.97.119.126   <none>        8443/TCP   4d12h   app.kubernetes.io/name=operator,control-plane=controller-manager
+
+===== secrets =====
+NAME                                          TYPE                 DATA   AGE
+sh.helm.release.v1.controlplane-operator.v1   helm.sh/release.v1   1      4d12h
+
+===== configmaps =====
+NAME               DATA   AGE
+kube-root-ca.crt   1      12d
+
+===== endpoints =====
+Warning: v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice
+NAME                                          ENDPOINTS   AGE
+operator-controller-manager-metrics-service   <none>      4d12h
+
+===== endpointslices =====
+NAME                                                ADDRESSTYPE   PORTS     ENDPOINTS   AGE
+operator-controller-manager-metrics-service-ccv4r   IPv4          <unset>   <unset>     4d12h
+
+===== Nœuds =====
+Cluster infos :
+NAME                    STATUS   ROLES           AGE   VERSION
+control-plane-lab       Ready    control-plane   13d   v1.35.1
+control-plane-lab-m02   Ready    <none>          13d   v1.35.1
+control-plane-lab-m03   Ready    <none>          13d   v1.35.1
+control-plane-lab-m04   Ready    <none>          13d   v1.35.1
+error: metrics not available yet

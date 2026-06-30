@@ -11,7 +11,7 @@
 #
 # Ne pas mettre de '_' mais plutôt des '-'
 
-TEST_LABEL="D10R1-R1-60s-30min"
+TEST_LABEL="D1R1-R1-30s-180min"
 CR_NAME="cr$(date '+%Y-%m-%d-%H%M')"
 
 # Horodatage réel du lancement
@@ -19,24 +19,24 @@ START_TIME="$(date '+%Y-%m-%d %H:%M:%S')"
 START_EPOCH="$(date +%s)"
 
 # CHARGE INITIALE
-DEPLOYMENTS=10
-REPLICAS_PER_DEP=1
-CPU_PER_POD="25m"
-MEM_PER_POD="32Mi"
+DEPLOYMENTS=0
+REPLICAS_PER_DEP=0
+CPU_PER_POD="20m"
+MEM_PER_POD="30Mi"
 # Limits = Request x2
-CPU_LIMIT_PER_POD="50m"
-MEM_LIMIT_PER_POD="64Mi"
+CPU_LIMIT_PER_POD="28m"
+MEM_LIMIT_PER_POD="34Mi"
 
-CONFIGMAPS=0
-SIZE_KB_CM=0
-SECRETS=0
-SIZE_KB_SEC=0
+CONFIGMAPS=100
+SIZE_KB_CM=500
+SECRETS=100
+SIZE_KB_SEC=500
 
 # Limites
-MAX_DEPLOYMENTS=10
-MAX_REPLICAS_PER_DEP=300
-MAX_CONFIGMAPS=0
-MAX_SECRETS=0
+MAX_DEPLOYMENTS=0
+MAX_REPLICAS_PER_DEP=0
+MAX_CONFIGMAPS=100
+MAX_SECRETS=100
 
 # Définir la liste des ressources à faire varier
 #
@@ -48,14 +48,14 @@ MAX_SECRETS=0
 #
 # (retour à la ligne entre chaque et valeur entre guillemets)
 VARIABLE_LOADS=(
-    "REPLICAS_PER_DEP"
+    "CONFIGMAPS"
 )
 
-INCREMENT=1
+INCREMENT=10
 # secondes entre deux mises à jour de la CR
-UPDATE_INTERVAL=60
+UPDATE_INTERVAL=30
 # durée totale du test en secondes
-TEST_DURATION=1800
+TEST_DURATION=3600
 
 # Définition de la fin du test
 END_EPOCH=$((START_EPOCH + TEST_DURATION))
@@ -72,17 +72,13 @@ CONTAINER_NAME="app"
 SERVICE_PORT=80
 TARGET_PORT=80
 
-SCHEDULER_ENABLED=false
-
+SCHEDULER_ENABLED=true
 NODE_SELECTOR_KEY="minikube.k8s.io/primary"
 NODE_SELECTOR_VALUE="false"
-
 TOPOLOGY_SPREAD=false
-
 AFFINITY_MODE=""
 AFFINITY_KEY=""
 AFFINITY_VALUE=""
-
 ANTI_AFFINITY_MODE=""
 ANTI_AFFINITY_KEY=""
 ANTI_AFFINITY_VALUE=""
@@ -262,18 +258,23 @@ EOF
 }
 
 generate_cr
-# kubectl apply -f "${CR_NAME}.yaml" || {
-#     echo "❌ Erreur application CR"
-#     exit 1
-# }
+mkdir -p auto_test_logs || {
+    echo "❌ Erreur dossier de logs introuvable"
+    exit 1
+}
 
-echo "=== YAML généré ==="
-cat "${CR_NAME}.yaml"
-echo
+kubectl apply -f "${CR_NAME}.yaml" || {
+    echo "❌ Erreur application CR"
+    exit 1
+}
 
-kubectl apply -f "${CR_NAME}.yaml"
+# echo "=== YAML généré ==="
+# cat "${CR_NAME}.yaml"
+# echo
 
-echo "RC=$?"
+# kubectl apply -f "${CR_NAME}.yaml"
+
+# echo "RC=$?"
 
 # Fonction de logging à activer à chaque update
 log_update() {
@@ -368,3 +369,6 @@ kubectl delete controlplanetest "${CR_NAME}" \
     -n operator-system
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] FIN DU TEST" \
     >> "${CR_NAME}.log"
+
+mv "${CR_NAME}.yaml" auto_test_logs
+mv "${CR_NAME}.log" auto_test_logs

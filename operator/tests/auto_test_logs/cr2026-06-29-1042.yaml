@@ -1,0 +1,105 @@
+apiVersion: controlplane.lab.local/v1alpha1
+kind: ControlPlaneTest
+metadata:
+    name: cr2026-06-29-1042
+    namespace: operator-system
+
+spec:
+    image: "nginx"
+
+    containerName: "app"
+
+    deploymentCount: 0
+    replicasPerDeployment: 0
+
+    servicePort: 80
+    targetPort: 80
+
+    customLabel:
+        key: "stress"
+        value: "D1R1-R1-30s-180min"
+
+    resourcesPerPod:
+        cpuRequest: "20m"
+        cpuLimit: "28m"
+        memoryRequest: "30Mi"
+        memoryLimit: "34Mi"
+
+    configMapCount: 500
+    configMapSizeKB: 500
+
+    secretCount: 500
+    secretSizeKB: 500
+
+    # ==========================================================
+    # SCHEDULER STRESS
+    # ==========================================================
+
+    schedulerStress:
+        enabled: true
+
+        nodeSelector:
+            minikube.k8s.io/primary: "false"
+
+        topologySpread: false
+
+        affinityMode: ""
+
+        affinitySelector:
+            key: ""
+            value: ""
+
+        antiAffinityMode: ""
+
+        antiAffinitySelector:
+            key: ""
+            value: ""
+
+    # ==========================================================
+    # API SERVER / ETCD STRESS
+    # ==========================================================
+
+    apiServerEtcdStress:
+        enabled: false
+
+        frequentStatusUpdates: false
+
+        aggressiveReconcile: false
+        reconcileRequeueDelay: 1000
+
+        recreateResources: false
+
+    # ==========================================================
+    # CONTROLLER MANAGER STRESS
+    # ==========================================================
+
+    controllerManagerStress:
+        enabled: false
+
+        recreateReplicaSets: false
+        replicaRecreateDelay: 1000
+
+        aggressiveGarbageCollection: false
+        garbageCollectionDelay: 1000
+
+    # ==========================================================
+    # OPERATOR STRESS
+    # ==========================================================
+
+    operatorStress:
+        enabled: false
+
+        profile: "standard"
+
+    # ==========================================================
+    # POD LIFECYCLE STORM
+    # ==========================================================
+
+    podLifecycleStorm:
+        enabled: false
+
+        deletePodsRandomly: false
+        deletePodsDelay: 1000
+
+        crashLoopSimulation: false
+

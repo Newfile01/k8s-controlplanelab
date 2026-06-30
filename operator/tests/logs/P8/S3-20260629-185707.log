@@ -1,0 +1,37 @@
+###############################################################
+# Kubernetes Control Plane Benchmark
+###############################################################
+
+Date        : Mon Jun 29 18:57:07 CEST 2026
+Protocole   : P8
+Scénario    : S3
+
+Configuration :
+
+    DELETE_PODS_DELAY=1
+
+###############################################################
+
+
+=======================================================
+
+DATE : Mon Jun 29 18:57:07 CEST 2026
+
+CLUSTER INITIAL
+=======================================================
+
+NAME                    CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)   
+control-plane-lab       113m         0%       1499Mi          9%          
+control-plane-lab-m02   15m          0%       228Mi           1%          
+control-plane-lab-m03   19m          0%       237Mi           1%          
+control-plane-lab-m04   29m          0%       540Mi           3%          
+
+=======================================================
+PLAN DE CONTROLE INITIAL
+=======================================================
+
+kube-system        etcd-control-plane-lab                                   18m          67Mi            
+kube-system        kube-apiserver-control-plane-lab                         32m          630Mi           
+kube-system        kube-controller-manager-control-plane-lab                12m          66Mi            
+kube-system        kube-scheduler-control-plane-lab                         4m           30Mi            
+operator-system    operator-controller-manager-78b78bbd44-7c4tq             1m           27Mi            

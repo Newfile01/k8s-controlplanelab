@@ -1,0 +1,54 @@
+
+===== controlplanetests =====
+No resources found in operator-system namespace.
+
+===== limitranges =====
+No resources found in operator-system namespace.
+SI ABSENT >> PROBABLEMENT PREVU ✌️
+
+===== resourcequotas =====
+NAME             REQUEST                                                                                                                                                                                   LIMIT                                     AGE
+operator-quota   count/configmaps: 1/1200, count/deployments.apps: 1/100, count/replicasets.apps: 1/120, count/secrets: 1/1200, pods: 1/360, requests.cpu: 0/8, requests.memory: 0/11Gi, services: 1/100   limits.cpu: 0/10, limits.memory: 0/12Gi   8h
+SI ABSENT >> VERIFIER LE DIMENSIONNEMENT DES PODS !!! 🫣
+
+===== deployments =====
+NAME                          READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES                      SELECTOR
+operator-controller-manager   1/1     1            1           8h    manager      newfile01/operator-k8s:v7   app.kubernetes.io/name=operator,control-plane=controller-manager
+
+===== replicasets =====
+NAME                                     DESIRED   CURRENT   READY   AGE   CONTAINERS   IMAGES                      SELECTOR
+operator-controller-manager-78b78bbd44   1         1         1       8h    manager      newfile01/operator-k8s:v7   app.kubernetes.io/name=operator,control-plane=controller-manager,pod-template-hash=78b78bbd44
+
+===== pods =====
+NAME                                           READY   STATUS    RESTARTS       AGE   IP           NODE                    NOMINATED NODE   READINESS GATES
+operator-controller-manager-78b78bbd44-7c4tq   1/1     Running   15 (57s ago)   8h    10.244.2.2   control-plane-lab-m03   <none>           <none>
+
+===== services =====
+NAME                                          TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE   SELECTOR
+operator-controller-manager-metrics-service   ClusterIP   10.96.239.215   <none>        8443/TCP   8h    app.kubernetes.io/name=operator,control-plane=controller-manager
+
+===== secrets =====
+NAME                                          TYPE                 DATA   AGE
+sh.helm.release.v1.controlplane-operator.v1   helm.sh/release.v1   1      8h
+
+===== configmaps =====
+NAME               DATA   AGE
+kube-root-ca.crt   1      6m49s
+
+===== endpoints =====
+Warning: v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice
+NAME                                          ENDPOINTS         AGE
+operator-controller-manager-metrics-service   10.244.2.2:8443   8h
+
+===== endpointslices =====
+NAME                                                ADDRESSTYPE   PORTS   ENDPOINTS    AGE
+operator-controller-manager-metrics-service-6qgns   IPv4          8443    10.244.2.2   8h
+
+===== Nœuds =====
+Cluster infos :
+NAME                    STATUS   ROLES           AGE   VERSION
+control-plane-lab       Ready    control-plane   8h    v1.35.1
+control-plane-lab-m02   Ready    <none>          8h    v1.35.1
+control-plane-lab-m03   Ready    <none>          8h    v1.35.1
+control-plane-lab-m04   Ready    <none>          8h    v1.35.1
+error: metrics not available yet

@@ -1,0 +1,38 @@
+###############################################################
+# Kubernetes Control Plane Benchmark
+###############################################################
+
+Date        : Mon Jun 29 13:43:17 CEST 2026
+Protocole   : P3
+Scénario    : S2
+
+Configuration :
+
+    CONFIGMAPS=250
+    SECRETS=250
+
+###############################################################
+
+
+=======================================================
+
+DATE : Mon Jun 29 13:43:17 CEST 2026
+
+CLUSTER INITIAL
+=======================================================
+
+NAME                    CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)   
+control-plane-lab       87m          0%       1666Mi          10%         
+control-plane-lab-m02   33m          0%       1673Mi          10%         
+control-plane-lab-m03   18m          0%       418Mi           2%          
+control-plane-lab-m04   26m          0%       774Mi           4%          
+
+=======================================================
+PLAN DE CONTROLE INITIAL
+=======================================================
+
+kube-system        etcd-control-plane-lab                                   17m          152Mi           
+kube-system        kube-apiserver-control-plane-lab                         33m          1053Mi          
+kube-system        kube-controller-manager-control-plane-lab                12m          115Mi           
+kube-system        kube-scheduler-control-plane-lab                         5m           66Mi            
+operator-system    operator-controller-manager-78b78bbd44-7c4tq             1m           36Mi            

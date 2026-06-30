@@ -4,14 +4,31 @@ kind: ResourceQuota
 metadata:
   name: operator-quota
   namespace: operator-system
-# Appliquée aussi au namespace et surveillera les ressources créées dedans
+
 spec:
   hard:
-    # limite de pods
-    pods: "350"
-    # resources max demandée pour le namespace si possible
-    requests.cpu: "6"
-    requests.memory: 10Gi
-    # limite fixée
-    limits.cpu: "8"
-    limits.memory: 16Gi
+
+    # Pods
+    pods: "360"
+
+    # CPU / RAM
+    requests.cpu: "8"
+    requests.memory: 11Gi
+
+    limits.cpu: "10"
+    limits.memory: 12Gi
+
+    # Déploiements
+    count/deployments.apps: "100"
+
+    # ReplicaSets
+    count/replicasets.apps: "120"
+
+    # Services
+    services: "100"
+
+    # ConfigMaps
+    count/configmaps: "1200"
+
+    # Secrets
+    count/secrets: "1200"

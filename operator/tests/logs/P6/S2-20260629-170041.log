@@ -1,0 +1,38 @@
+###############################################################
+# Kubernetes Control Plane Benchmark
+###############################################################
+
+Date        : Mon Jun 29 17:00:41 CEST 2026
+Protocole   : P6
+Scénario    : S2
+
+Configuration :
+
+    AGGRESSIVE_RECONCILE=true
+    RECONCILE_REQUEUE_DELAY=10
+
+###############################################################
+
+
+=======================================================
+
+DATE : Mon Jun 29 17:00:41 CEST 2026
+
+CLUSTER INITIAL
+=======================================================
+
+NAME                    CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)   
+control-plane-lab       107m         0%       1833Mi          11%         
+control-plane-lab-m02   15m          0%       247Mi           1%          
+control-plane-lab-m03   18m          0%       235Mi           1%          
+control-plane-lab-m04   26m          0%       541Mi           3%          
+
+=======================================================
+PLAN DE CONTROLE INITIAL
+=======================================================
+
+kube-system        etcd-control-plane-lab                                   16m          358Mi           
+kube-system        kube-apiserver-control-plane-lab                         33m          633Mi           
+kube-system        kube-controller-manager-control-plane-lab                12m          75Mi            
+kube-system        kube-scheduler-control-plane-lab                         4m           29Mi            
+operator-system    operator-controller-manager-78b78bbd44-7c4tq             2m           24Mi            

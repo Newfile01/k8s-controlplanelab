@@ -1,0 +1,19 @@
+==============================================================
+TEST_LABEL         : D1R1-R1-30s-180min             CR_NAME            : cr2026-06-29-2137
+
+Début             : 2026-06-29 21:37:26            Fin prévue        : 2026-06-29 22:37:26
+
+DEPLOYMENTS        : 50                             CPU                : 20m
+REPLICAS_PER_DEP   : 4                              MEM                : 30Mi
+
+CONFIGMAPS         : 300                            SIZE_CM            : 300kB
+SECRETS            : 300                            SIZE_SEC           : 300kB
+
+VARIABLE_LOADS     : CONFIGMAPS
+INCREMENT          : 10                             UPDATE_INTERVAL    : 30s
+TEST_DURATION      : 3600s
+==============================================================
+
+[2026-06-29 21:37:58] UPDATE CR cr2026-06-29-2137
+  CONFIGMAPS=300
+[2026-06-29 21:37:58] FIN DU TEST

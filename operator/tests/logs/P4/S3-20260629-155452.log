@@ -1,0 +1,40 @@
+###############################################################
+# Kubernetes Control Plane Benchmark
+###############################################################
+
+Date        : Mon Jun 29 15:54:52 CEST 2026
+Protocole   : P4
+Scénario    : S3
+
+Configuration :
+
+    CONFIGMAPS=10
+    SECRETS=10
+    SIZE_KB_CM=900
+    SIZE_KB_SEC=900
+
+###############################################################
+
+
+=======================================================
+
+DATE : Mon Jun 29 15:54:52 CEST 2026
+
+CLUSTER INITIAL
+=======================================================
+
+NAME                    CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)   
+control-plane-lab       101m         0%       1629Mi          10%         
+control-plane-lab-m02   14m          0%       212Mi           1%          
+control-plane-lab-m03   18m          0%       230Mi           1%          
+control-plane-lab-m04   27m          0%       596Mi           3%          
+
+=======================================================
+PLAN DE CONTROLE INITIAL
+=======================================================
+
+kube-system        etcd-control-plane-lab                                   17m          145Mi           
+kube-system        kube-apiserver-control-plane-lab                         31m          650Mi           
+kube-system        kube-controller-manager-control-plane-lab                12m          64Mi            
+kube-system        kube-scheduler-control-plane-lab                         4m           27Mi            
+operator-system    operator-controller-manager-78b78bbd44-7c4tq             1m           22Mi            

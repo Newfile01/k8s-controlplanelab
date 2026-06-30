@@ -1,0 +1,50 @@
+###############################################################
+# Kubernetes Control Plane Benchmark
+###############################################################
+
+Date        : Mon Jun 29 10:37:00 CEST 2026
+Protocole   : P3
+Scénario    : S1
+
+Configuration :
+
+    SCHEDULER_ENABLED=true
+    APISERVER_ETCD_ENABLED=false
+    CONTROLLER_MANAGER_ENABLED=false
+    POD_LIFECYCLE_ENABLED=false
+    OPERATOR_ENABLED=false
+    FREQUENT_STATUS_UPDATES=false
+    AGGRESSIVE_RECONCILE=false
+    RECREATE_RESOURCES=false
+    RECREATE_REPLICASETS=false
+    AGGRESSIVE_GC=false
+    DELETE_PODS_RANDOMLY=false
+    CRASH_LOOP_SIMULATION=false
+    CONFIGMAPS=50
+    SECRETS=50
+
+###############################################################
+
+
+=======================================================
+
+DATE : Mon Jun 29 10:37:00 CEST 2026
+
+CLUSTER INITIAL
+=======================================================
+
+NAME                    CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)   
+control-plane-lab       165m         0%       2055Mi          13%         
+control-plane-lab-m02   24m          0%       224Mi           1%          
+control-plane-lab-m03   18m          0%       161Mi           1%          
+control-plane-lab-m04   23m          0%       194Mi           1%          
+
+=======================================================
+PLAN DE CONTROLE INITIAL
+=======================================================
+
+kube-system        etcd-control-plane-lab                                   18m          67Mi            
+kube-system        kube-apiserver-control-plane-lab                         35m          435Mi           
+kube-system        kube-controller-manager-control-plane-lab                14m          75Mi            
+kube-system        kube-scheduler-control-plane-lab                         5m           31Mi            
+operator-system    operator-controller-manager-78b78bbd44-8bcng             2m           26Mi            

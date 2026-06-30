@@ -1,0 +1,46 @@
+==============================================================
+TEST_LABEL         : D1R1-R1-30s-180min             CR_NAME            : cr2026-06-29-1817
+
+Début             : 2026-06-29 18:17:03            Fin prévue        : 2026-06-29 19:17:03
+
+DEPLOYMENTS        : 72                             CPU                : 20m
+REPLICAS_PER_DEP   : 4                              MEM                : 30Mi
+
+CONFIGMAPS         : 0                              SIZE_CM            : 500kB
+SECRETS            : 0                              SIZE_SEC           : 500kB
+
+VARIABLE_LOADS     : CONFIGMAPS
+INCREMENT          : 10                             UPDATE_INTERVAL    : 30s
+TEST_DURATION      : 3600s
+==============================================================
+
+[2026-06-29 18:17:35] UPDATE CR cr2026-06-29-1817
+  CONFIGMAPS=10
+
+[2026-06-29 18:18:07] UPDATE CR cr2026-06-29-1817
+  CONFIGMAPS=20
+
+[2026-06-29 18:18:39] UPDATE CR cr2026-06-29-1817
+  CONFIGMAPS=30
+
+[2026-06-29 18:19:12] UPDATE CR cr2026-06-29-1817
+  CONFIGMAPS=40
+
+[2026-06-29 18:19:44] UPDATE CR cr2026-06-29-1817
+  CONFIGMAPS=50
+
+[2026-06-29 18:20:16] UPDATE CR cr2026-06-29-1817
+  CONFIGMAPS=60
+
+[2026-06-29 18:20:48] UPDATE CR cr2026-06-29-1817
+  CONFIGMAPS=70
+
+[2026-06-29 18:21:21] UPDATE CR cr2026-06-29-1817
+  CONFIGMAPS=80
+
+[2026-06-29 18:21:51] UPDATE CR cr2026-06-29-1817
+  CONFIGMAPS=90
+
+[2026-06-29 18:22:24] UPDATE CR cr2026-06-29-1817
+  CONFIGMAPS=100
+[2026-06-29 18:22:24] FIN DU TEST

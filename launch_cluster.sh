@@ -33,6 +33,7 @@ echo "============================================================"
 minikube start \
 --profile=control-plane-lab \
 --driver=docker \
+--wait=apiserver \
 --container-runtime=containerd \
 --kubernetes-version=v1.35.1 \
 --addons=[metrics-server] \
@@ -126,4 +127,69 @@ echo "============================================================"
 echo "CLUSTER OPERATIONNEL"
 echo "============================================================"
 
+NAMESPACE="operator-system"
+echo "🖼️ Contexte de travail : ${NAMESPACE}"
+kubectl config set-context --current --namespace=${NAMESPACE}
+
+VARIABLE_LOADS=(
+    "controlplanetests"
+    "limitranges"
+    "resourcequotas"
+    "deployments"
+    "replicasets"
+    "pods"
+    "services"
+    "secrets"
+    "configmaps"
+    "endpoints"
+    "endpointslices"
+)
+
+mkdir -p launch_logs || {
+    echo "❌ Dossier de logs introuvable !"
+    exit 1
+}
+echo "✅ Dossier de logs OK"
+
+START_TIME="$(date '+%Y-%m-%d_%H-%M-%S')"
+LOG_FILE="launch_logs/launch_${START_TIME}.log"
+touch "$LOG_FILE"
+echo "✅ Logfile créé"
+
+sleep 30s
+# Usage de substitution de commande BASH (nécessite lancement script avec `bash <script>.sh`)
+# `exec` : indique de modifier la sortie standard (stdout) pour tous le reste du script
+# `>` (tout seul) : redirection stdout
+# `>(...)` : Process Substitution créé un pipe avec la redirection précédente
+# `tee -a` : dupplique stdout sur l'écran et dans le fichier défini. Le `-a` permet de ne pas écraser le contenu du fichier ("append")
+# `2>&1` : redirige les erreurs ('2') au même endroit que  stdout (donc dans le fichier et à l'écran)
+#
+# Chaque commande suivant `exec ...` suivra donc le processus établi : 
+# redirection vers tee, qui dupplique écran/fichier sans écrasement, avec inclulsion des erreurs
+#
+#
+# Astuce : possible d'inclure ceci au milieu d'un fichier plutôt qu'à la fin en sauvegardant les flux :
+# exec 3>&1 4>&2
+# 
+# Ensuite, après le script à exploitere avec `exec ...` on réhabilite le flux de base :
+# exec 1>&3 2>&4
+#
+# Possible de fermer les flux temporairement créés :
+# exec 3>&- 4>&-
+exec 3>&1 4>&2
+exec > >(tee -a "$LOG_FILE") 2>&1
+for variable in "${VARIABLE_LOADS[@]}"; do
+    echo
+    echo "===== ${variable} ====="
+    kubectl get "${variable}" -o wide
+    [ "$variable" = "limitranges" ] && echo "SI ABSENT >> PROBABLEMENT PREVU ✌️"
+    [ "$variable" = "resourcequotas" ] && echo "SI ABSENT >> VERIFIER LE DIMENSIONNEMENT DES PODS !!! 🫣"
+done
+
+echo
+echo "===== Nœuds ====="
+echo "Cluster infos :"
 kubectl get nodes
+kubectl top nodes
+exec 1>&3 2>&4
+exec 3>&- 4>&-

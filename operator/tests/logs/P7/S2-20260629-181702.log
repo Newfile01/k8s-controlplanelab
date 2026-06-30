@@ -1,0 +1,37 @@
+###############################################################
+# Kubernetes Control Plane Benchmark
+###############################################################
+
+Date        : Mon Jun 29 18:17:02 CEST 2026
+Protocole   : P7
+Scénario    : S2
+
+Configuration :
+
+    AFFINITY_MODE=Required
+
+###############################################################
+
+
+=======================================================
+
+DATE : Mon Jun 29 18:17:02 CEST 2026
+
+CLUSTER INITIAL
+=======================================================
+
+NAME                    CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)   
+control-plane-lab       114m         0%       1522Mi          9%          
+control-plane-lab-m02   16m          0%       224Mi           1%          
+control-plane-lab-m03   20m          0%       237Mi           1%          
+control-plane-lab-m04   30m          0%       539Mi           3%          
+
+=======================================================
+PLAN DE CONTROLE INITIAL
+=======================================================
+
+kube-system        etcd-control-plane-lab                                   19m          66Mi            
+kube-system        kube-apiserver-control-plane-lab                         34m          680Mi           
+kube-system        kube-controller-manager-control-plane-lab                13m          66Mi            
+kube-system        kube-scheduler-control-plane-lab                         5m           29Mi            
+operator-system    operator-controller-manager-78b78bbd44-7c4tq             2m           27Mi            

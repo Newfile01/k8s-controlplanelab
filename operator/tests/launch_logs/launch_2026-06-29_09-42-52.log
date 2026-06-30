@@ -1,0 +1,57 @@
+
+===== controlplanetests =====
+No resources found in operator-system namespace.
+
+===== limitranges =====
+No resources found in operator-system namespace.
+SI ABSENT >> PROBABLEMENT PREVU ✌️
+
+===== resourcequotas =====
+NAME             REQUEST                                                   LIMIT                                     AGE
+operator-quota   pods: 1/360, requests.cpu: 0/8, requests.memory: 0/11Gi   limits.cpu: 0/10, limits.memory: 0/12Gi   5h29m
+SI ABSENT >> VERIFIER LE DIMENSIONNEMENT DES PODS !!! 🫣
+
+===== deployments =====
+NAME                          READY   UP-TO-DATE   AVAILABLE   AGE     CONTAINERS   IMAGES                      SELECTOR
+operator-controller-manager   1/1     1            1           4d18h   manager      newfile01/operator-k8s:v7   app.kubernetes.io/name=operator,control-plane=controller-manager
+
+===== replicasets =====
+NAME                                     DESIRED   CURRENT   READY   AGE     CONTAINERS   IMAGES                      SELECTOR
+operator-controller-manager-78b78bbd44   1         1         1       4d18h   manager      newfile01/operator-k8s:v7   app.kubernetes.io/name=operator,control-plane=controller-manager,pod-template-hash=78b78bbd44
+
+===== pods =====
+NAME                                           READY   STATUS    RESTARTS      AGE     IP           NODE                    NOMINATED NODE   READINESS GATES
+operator-controller-manager-78b78bbd44-8bcng   1/1     Running   9 (51s ago)   5h32m   10.244.3.2   control-plane-lab-m04   <none>           <none>
+
+===== services =====
+NAME                                          TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE     SELECTOR
+operator-controller-manager-metrics-service   ClusterIP   10.97.119.126   <none>        8443/TCP   4d18h   app.kubernetes.io/name=operator,control-plane=controller-manager
+
+===== secrets =====
+NAME                                          TYPE                 DATA   AGE
+sh.helm.release.v1.controlplane-operator.v1   helm.sh/release.v1   1      4d18h
+sh.helm.release.v1.controlplane-operator.v2   helm.sh/release.v1   1      5h41m
+sh.helm.release.v1.controlplane-operator.v3   helm.sh/release.v1   1      5h39m
+sh.helm.release.v1.controlplane-operator.v4   helm.sh/release.v1   1      5h34m
+
+===== configmaps =====
+NAME               DATA   AGE
+kube-root-ca.crt   1      12d
+
+===== endpoints =====
+Warning: v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice
+NAME                                          ENDPOINTS         AGE
+operator-controller-manager-metrics-service   10.244.3.2:8443   4d18h
+
+===== endpointslices =====
+NAME                                                ADDRESSTYPE   PORTS   ENDPOINTS    AGE
+operator-controller-manager-metrics-service-ccv4r   IPv4          8443    10.244.3.2   4d18h
+
+===== Nœuds =====
+Cluster infos :
+NAME                    STATUS   ROLES           AGE   VERSION
+control-plane-lab       Ready    control-plane   13d   v1.35.1
+control-plane-lab-m02   Ready    <none>          13d   v1.35.1
+control-plane-lab-m03   Ready    <none>          13d   v1.35.1
+control-plane-lab-m04   Ready    <none>          13d   v1.35.1
+error: metrics not available yet
